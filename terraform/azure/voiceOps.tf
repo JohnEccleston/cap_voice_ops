@@ -1,4 +1,4 @@
-provider "azure" {
+provider "azurerm" {
 # Need to work out creds
 }
 
