@@ -95,7 +95,8 @@ resource "azurerm_virtual_machine" "voiceOpsMasters" {
   name                  = "vomvm${count.index}"
   location              = "UK South"
   resource_group_name   = "${azurerm_resource_group.voiceOpsRm.name}"
-  network_interface_ids = ["${azurerm_network_interface.voiceOpsNiMasters.count.index.id}"]
+  #network_interface_ids = ["${azurerm_network_interface.voiceOpsNiMasters[count.index].id}"]
+  network_interface_ids = ["${element(azurerm_network_interface.voiceOpsNiMasters.*.id, count.index)}"]
   vm_size               = "Standard_DS1_v2"
 
   storage_image_reference {
@@ -133,7 +134,8 @@ resource "azurerm_virtual_machine" "voiceOpsNodes" {
   name                  = "vonvm${count.index}"
   location              = "UK South"
   resource_group_name   = "${azurerm_resource_group.voiceOpsRm.name}"
-  network_interface_ids = ["${azurerm_network_interface.voiceOpsNiNodes.count.index.id}"]
+  #network_interface_ids = ["${azurerm_network_interface.voiceOpsNiNodes.[count.index].id}"]
+  network_interface_ids = ["${element(azurerm_network_interface.voiceOpsNiNodes.*.id, count.index)}"]
   vm_size               = "Standard_DS1_v2"
 
   storage_image_reference {
