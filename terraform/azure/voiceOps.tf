@@ -21,21 +21,25 @@ resource "azurerm_virtual_network" "voiceOpsVn" {
   location      = "UK South"
   resource_group_name = "${azurerm_resource_group.voiceOpsRm.name}"
 
-  subnet {
-    name           = "masters"
-    address_prefix = "172.16.11.0/24"
-  }
- 
-  subnet {
-    name          = "nodes"
-    addres_prefix = "172.16.12.0/24"
-  }
-  
   tags {
     environment = "Production"
   }
 }
 
+resource "azurerm_subnet" voiceOpsSnMasters {
+    name           = "masters"
+    address_prefix = "172.16.11.0/24"
+    resource_group_name = "${azurerm_resource_group.voiceOpsRm.name}"
+    virtual_network_name = "${azurerm_virtual_network.voiceOpsVn.name}"
+}
+
+resource "azurerm_subnet" voiceOpsSnNodes {
+    name          = "nodes"
+    address_prefix = "172.16.12.0/24"
+    resource_group_name = "${azurerm_resource_group.voiceOpsRm.name}"
+    virtual_network_name = "${azurerm_virtual_network.voiceOpsVn.name}"
+}
+  
 # Create Availability Set for Masters
 
 resource "azurerm_availability_set" "voiceOpsAsMasters" {
@@ -62,48 +66,64 @@ resource "azurerm_availability_set" "voiceOpsAsNodes" {
 
 resource "azurerm_network_interface" "voiceOpsNiMasters" {
   count               = 3
-  name                = "vonim${count.id}"
+  name                = "vonim${count.index}"
   location            = "UK South"
   resource_group_name = "${azurerm_resource_group.voiceOpsRm.name}"
 
   ip_configuration {
     name                          = "voiceOpsIpConfigMasters"
-    subnet_id                     = "${azurerm_subnet.masters.id}"
+    subnet_id                     = "${azurerm_subnet.voiceOpsSnMasters.id}"
     private_ip_address_allocation = "dynamic"
   }
 }
 
 resource "azurerm_network_interface" "voiceOpsNiNodes" {
   count               = 3
-  name                = "vonin${count.id}"
+  name                = "vonin${count.index}"
   location            = "UK South"
   resource_group_name = "${azurerm_resource_group.voiceOpsRm.name}"
 
   ip_configuration {
     name                          = "voiceOpsIpConfigNodes"
-    subnet_id                     = "${azurerm_subnet.nodes.id}"
+    subnet_id                     = "${azurerm_subnet.voiceOpsSnNodes.id}"
     private_ip_address_allocation = "dynamic"
   }
 }
 
-resource "azurerm_managed_disk" "voiceOpsDiskMasters" {
-  count                = 3
-  name                 = "vomdm${count.id}"
-  location             = "UK South"
-  resource_group_name  = "${azurerm_resource_group.voiceOpsRm.name}"
-  storage_account_type = "Standard_LRS"
-  create_option        = "Empty"
-  disk_size_gb         = "80"
+resource "azurerm_virtual_machine" "voiceOpsMasters" {
+  count                 = 3
+  name                  = "vomvm${count.index}"
+  location              = "UK South"
+  resource_group_name   = "${azurerm_resource_group.voiceOpsRm.name}"
+  network_interface_ids = ["${azurerm_network_interface.voiceOpsNiMasters.id}"]
+  vm_size               = "Standard_DS1_v2"
+
+  storage_image_reference {
+    publisher = "credativ"
+    offer     = "Debian"
+    sku       = "9"
+    version   = "latest"
+  }
+
+  storage_os_disk {
+    name              = "osdiskm${count.index}"
+    caching           = "ReadWrite"
+    create_option     = "FromImage"
+    managed_disk_type = "Standard_LRS"
+    disk_size_gb      = "80"
+  }
+
+  os_profile {
+    computer_name  = "voiceops-master${count.index}"
+    admin_username = "admin"
+    admin_password = "changeme"
+  }
+
+  os_profile_linux_config {
+    disable_password_authentication = false
+  }
+
+  tags {
+    environment = "production"
+  }
 }
-
-resource "azurerm_managed_disk" "voiceOpsDiskNodes" {
-  count                = 3
-  name                 = "vomdn${count.id}"
-  location             = "UK South"
-  resource_group_name  = "${azurerm_resource_group.voiceOpsRm.name}"
-  storage_account_type = "Standard_LRS"
-  create_option        = "Empty"
-  disk_size_gb         = "80"
-}
-
-
