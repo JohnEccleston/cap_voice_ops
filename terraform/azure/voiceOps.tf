@@ -95,7 +95,7 @@ resource "azurerm_virtual_machine" "voiceOpsMasters" {
   name                  = "vomvm${count.index}"
   location              = "UK South"
   resource_group_name   = "${azurerm_resource_group.voiceOpsRm.name}"
-  network_interface_ids = ["${azurerm_network_interface.voiceOpsNiMasters.id}"]
+  network_interface_ids = ["${azurerm_network_interface.voiceOpsNiMasters.count.index.id}"]
   vm_size               = "Standard_DS1_v2"
 
   storage_image_reference {
@@ -115,6 +115,44 @@ resource "azurerm_virtual_machine" "voiceOpsMasters" {
 
   os_profile {
     computer_name  = "voiceops-master${count.index}"
+    admin_username = "admin"
+    admin_password = "changeme"
+  }
+
+  os_profile_linux_config {
+    disable_password_authentication = false
+  }
+
+  tags {
+    environment = "production"
+  }
+}
+
+resource "azurerm_virtual_machine" "voiceOpsNodes" {
+  count                 = 3
+  name                  = "vonvm${count.index}"
+  location              = "UK South"
+  resource_group_name   = "${azurerm_resource_group.voiceOpsRm.name}"
+  network_interface_ids = ["${azurerm_network_interface.voiceOpsNiNodes.count.index.id}"]
+  vm_size               = "Standard_DS1_v2"
+
+  storage_image_reference {
+    publisher = "credativ"
+    offer     = "Debian"
+    sku       = "9"
+    version   = "latest"
+  }
+
+  storage_os_disk {
+    name              = "osdiskn${count.index}"
+    caching           = "ReadWrite"
+    create_option     = "FromImage"
+    managed_disk_type = "Standard_LRS"
+    disk_size_gb      = "80"
+  }
+
+  os_profile {
+    computer_name  = "voiceops-node${count.index}"
     admin_username = "admin"
     admin_password = "changeme"
   }
