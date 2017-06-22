@@ -12,9 +12,9 @@ provider "aws" {
   region = "eu-west-1"
 }
 
-resource "aws_vpc" "voiceOpsVPC" {
-  name                 = "voiceOpsVPC" 
-  cidr_block           = "172.20.0.0/22"
+resource "aws_vpc" "voiceOpsVpc" {
+  name                 = "voiceOpsVpc" 
+  cidr_block           = "172.20.0.0/20"
   enable_dns_support   = true
   enable_dns_hostnames = true
 
@@ -24,9 +24,31 @@ resource "aws_vpc" "voiceOpsVPC" {
   }
 }
 
-resource "aws_subnet" "eu-west-1c-k8sdemo-capademy-com" {
-  vpc_id            = "${aws_vpc.k8sdemo-capademy-com.id}"
+resource "aws_subnet" "voiceOpsSn1a" {
+  vpc_id            = "${aws_vpc.voiceOpsVpc"
   cidr_block        = "172.20.0.0/24"
+  availability_zone = "eu-west-1a"
+
+  tags = {
+    KubernetesCluster = "voiceOps"
+    Name              = "voiceOps"
+  }
+}
+
+resource "aws_subnet" "voiceOpsSn1b" {
+  vpc_id            = "${aws_vpc.voiceOpsVpc"
+  cidr_block        = "172.20.1.0/24"
+  availability_zone = "eu-west-1b"
+
+  tags = {
+    KubernetesCluster = "voiceOps"
+    Name              = "voiceOps"
+  }
+}
+
+resource "aws_subnet" "voiceOpsSn1c" {
+  vpc_id            = "${aws_vpc.voiceOpsVpc"
+  cidr_block        = "172.20.2.0/24"
   availability_zone = "eu-west-1c"
 
   tags = {
