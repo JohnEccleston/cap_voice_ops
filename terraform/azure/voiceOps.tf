@@ -1,12 +1,23 @@
+variable "masters_number" {
+  type    = "string"
+  default = "1"
+}
+
+variable "nodes_number" {
+  type    = "string"
+  default = "3"
+}
+
+
 provider "azurerm" {
-# Need to work out creds
+# Creds provided by environment variables
 }
 
 # Create resource group
 
 resource "azurerm_resource_group" "voiceOpsRm" {
   name     = "voiceOpsResourceGroup"
-  location = "UK South"
+  location = "UK West"
 
   tags {
     environment = "Production"
@@ -18,7 +29,7 @@ resource "azurerm_resource_group" "voiceOpsRm" {
 resource "azurerm_virtual_network" "voiceOpsVn" {
   name          = "voiceOpsNetwork"
   address_space = ["172.16.0.0/16"]
-  location      = "UK South"
+  location      = "UK West"
   resource_group_name = "${azurerm_resource_group.voiceOpsRm.name}"
 
   tags {
@@ -44,7 +55,7 @@ resource "azurerm_subnet" voiceOpsSnNodes {
 
 resource "azurerm_availability_set" "voiceOpsAsMasters" {
   name                = "voiceOpsMastersAs"
-  location            = "UK South"
+  location            = "UK West"
   resource_group_name = "${azurerm_resource_group.voiceOpsRm.name}"
 
   tags {
@@ -56,7 +67,7 @@ resource "azurerm_availability_set" "voiceOpsAsMasters" {
 
 resource "azurerm_availability_set" "voiceOpsAsNodes" {
   name                = "voiceOpsNodesAs"
-  location            = "UK South"
+  location            = "UK West"
   resource_group_name = "${azurerm_resource_group.voiceOpsRm.name}"
 
   tags {
@@ -65,9 +76,9 @@ resource "azurerm_availability_set" "voiceOpsAsNodes" {
 }
 
 resource "azurerm_network_interface" "voiceOpsNiMasters" {
-  count               = 3
+  count               = "${var.masters_number}"
   name                = "vonim${count.index}"
-  location            = "UK South"
+  location            = "UK West"
   resource_group_name = "${azurerm_resource_group.voiceOpsRm.name}"
 
   ip_configuration {
@@ -78,9 +89,9 @@ resource "azurerm_network_interface" "voiceOpsNiMasters" {
 }
 
 resource "azurerm_network_interface" "voiceOpsNiNodes" {
-  count               = 3
+  count               = "${var.nodes_number}"
   name                = "vonin${count.index}"
-  location            = "UK South"
+  location            = "UK West"
   resource_group_name = "${azurerm_resource_group.voiceOpsRm.name}"
 
   ip_configuration {
@@ -91,13 +102,12 @@ resource "azurerm_network_interface" "voiceOpsNiNodes" {
 }
 
 resource "azurerm_virtual_machine" "voiceOpsMasters" {
-  count                 = 3
+  count                 = "${var.masters_number}"
   name                  = "vomvm${count.index}"
-  location              = "UK South"
+  location              = "UK West"
   resource_group_name   = "${azurerm_resource_group.voiceOpsRm.name}"
-  #network_interface_ids = ["${azurerm_network_interface.voiceOpsNiMasters[count.index].id}"]
   network_interface_ids = ["${element(azurerm_network_interface.voiceOpsNiMasters.*.id, count.index)}"]
-  vm_size               = "Standard_DS1_v2"
+  vm_size               = "Standard_A2_v2"
 
   storage_image_reference {
     publisher = "credativ"
@@ -116,8 +126,8 @@ resource "azurerm_virtual_machine" "voiceOpsMasters" {
 
   os_profile {
     computer_name  = "voiceops-master${count.index}"
-    admin_username = "admin"
-    admin_password = "changeme"
+    admin_username = "voiceops"
+    admin_password = "voiceOpsbatterystaple1986"
   }
 
   os_profile_linux_config {
@@ -130,13 +140,12 @@ resource "azurerm_virtual_machine" "voiceOpsMasters" {
 }
 
 resource "azurerm_virtual_machine" "voiceOpsNodes" {
-  count                 = 3
+  count                 = "${var.nodes_number}"
   name                  = "vonvm${count.index}"
-  location              = "UK South"
+  location              = "UK West"
   resource_group_name   = "${azurerm_resource_group.voiceOpsRm.name}"
-  #network_interface_ids = ["${azurerm_network_interface.voiceOpsNiNodes.[count.index].id}"]
   network_interface_ids = ["${element(azurerm_network_interface.voiceOpsNiNodes.*.id, count.index)}"]
-  vm_size               = "Standard_DS1_v2"
+  vm_size               = "Standard_A2_v2"
 
   storage_image_reference {
     publisher = "credativ"
@@ -155,8 +164,8 @@ resource "azurerm_virtual_machine" "voiceOpsNodes" {
 
   os_profile {
     computer_name  = "voiceops-node${count.index}"
-    admin_username = "admin"
-    admin_password = "changeme"
+    admin_username = "voiceops"
+    admin_password = "voiceOpsbatterystaple1986"
   }
 
   os_profile_linux_config {
