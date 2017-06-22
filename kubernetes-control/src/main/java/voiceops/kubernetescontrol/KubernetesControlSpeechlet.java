@@ -178,7 +178,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
     	AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
     			.withRegion(Regions.EU_WEST_1)
     			.build();
-    	S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "config.yml"));
+    	S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "config"));
     	
         Yaml yaml = new Yaml();
         @SuppressWarnings("unchecked")
