@@ -1,2 +1,6 @@
 *.publishsettings
 *credentials*
+.classpath
+.project
+.settings/
+target/
