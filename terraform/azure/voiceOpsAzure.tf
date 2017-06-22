@@ -28,7 +28,7 @@ resource "azurerm_resource_group" "voiceOpsRm" {
 
 resource "azurerm_virtual_network" "voiceOpsVn" {
   name          = "voiceOpsNetwork"
-  address_space = ["172.16.0.0/16"]
+  address_space = ["172.21.0.0/22"]
   location      = "UK West"
   resource_group_name = "${azurerm_resource_group.voiceOpsRm.name}"
 
@@ -39,14 +39,14 @@ resource "azurerm_virtual_network" "voiceOpsVn" {
 
 resource "azurerm_subnet" voiceOpsSnMasters {
     name           = "masters"
-    address_prefix = "172.16.11.0/24"
+    address_prefix = "172.21.0.0/24"
     resource_group_name = "${azurerm_resource_group.voiceOpsRm.name}"
     virtual_network_name = "${azurerm_virtual_network.voiceOpsVn.name}"
 }
 
 resource "azurerm_subnet" voiceOpsSnNodes {
     name          = "nodes"
-    address_prefix = "172.16.12.0/24"
+    address_prefix = "172.21.1.0/24"
     resource_group_name = "${azurerm_resource_group.voiceOpsRm.name}"
     virtual_network_name = "${azurerm_virtual_network.voiceOpsVn.name}"
 }
