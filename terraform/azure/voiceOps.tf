@@ -107,7 +107,7 @@ resource "azurerm_virtual_machine" "voiceOpsMasters" {
   location              = "UK West"
   resource_group_name   = "${azurerm_resource_group.voiceOpsRm.name}"
   network_interface_ids = ["${element(azurerm_network_interface.voiceOpsNiMasters.*.id, count.index)}"]
-  vm_size               = "Standard_A2_v2"
+  vm_size               = "Standard_A1_v2"
 
   storage_image_reference {
     publisher = "credativ"
@@ -145,7 +145,7 @@ resource "azurerm_virtual_machine" "voiceOpsNodes" {
   location              = "UK West"
   resource_group_name   = "${azurerm_resource_group.voiceOpsRm.name}"
   network_interface_ids = ["${element(azurerm_network_interface.voiceOpsNiNodes.*.id, count.index)}"]
-  vm_size               = "Standard_A2_v2"
+  vm_size               = "Standard_A1_v2"
 
   storage_image_reference {
     publisher = "credativ"
