@@ -113,41 +113,119 @@ resource "aws_route_table_association" "voiceOpsRta1c" {
 # Security Group Setup
 
 ## TBD
-resource "aws_security_group" "voiceOpsSSH" {
-    name = "voiceOpsSSH"
-    description = "SSH access to the Bastion Server"
-    vpc_id = "${aws_vpc.voiceOpsVpc.id}"
+resource "aws_security_group" "voiceOpsNodesSg" {
+  name        = "nodes.voiceops.capademy.com"
+  vpc_id      = "${aws_vpc.voiceOpsVpc.id}"
+  description = "Security group for nodes"
 
-    # SSH access from anywhere
-    ingress {
-        from_port = 22
-        to_port = 22
-        protocol = "ssh"
-        cidr_blocks = ["0.0.0.0/0"]
-    }
+  tags = {
+    KubernetesCluster = "voiceops.capademy.com"
+    Name              = "nodes.voiceops.capademy.com"
+  }
 }
 
-resource "aws_security_group" "voiceOpsHTTP" {
-    name = "voiceOpsHTTP"
-    description = "HTTP and HTTP access"
-    vpc_id = "${aws_vpc.voiceOpsVpc.id}"
+resource "aws_security_group" "voiceOpsMastersSg" {
+  name        = "masters.voiceops.capademy.com"
+  vpc_id      = "${aws_vpc.voiceOpsVpc.id}"
+  description = "Security group for masters"
 
-    # SSH access from anywhere
-    ingress {
-        from_port = 80
-        to_port = 80
-        protocol = "http"
-        cidr_blocks = ["0.0.0.0/0"]
-    }
-
-    ingress {
-        from_port = 443
-        to_port = 443
-        protocol = "https"
-        cidr_blocks = ["0.0.0.0/0"]
-    }
+  tags = {
+    KubernetesCluster = "voiceops.capademy.com"
+    Name              = "masters.voiceops.capademy.com"
+  }
 }
 
+resource "aws_security_group" "voiceOpsBastionSg" {
+  name        = "bastion.voiceops.capademy.com"
+  vpc_id      = "${aws_vpc.voiceOpsVpc.id}"
+  description = "Security group for masters"
+
+  tags = {
+    KubernetesCluster = "voiceops.capademy.com"
+    Name              = "bastion.voiceops.capademy.com"
+  }
+}
+
+resource "aws_security_group_rule" "ssh-external-to-bastion-0-0-0-0--22" {
+  type                     = "ingress"
+  security_group_id        = "${aws_security_group.voiceOpsBastionSg.id}"
+  source_security_group_id = "${aws_security_group.voiceOpsBastionSg.id}"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+}
+
+resource "aws_security_group_rule" "all-master-to-master" {
+  type                     = "ingress"
+  security_group_id        = "${aws_security_group.voiceOpsMastersSg.id}"
+  source_security_group_id = "${aws_security_group.voiceOpsMastersSg.id}"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+}
+
+resource "aws_security_group_rule" "all-master-to-node" {
+  type                     = "ingress"
+  security_group_id        = "${aws_security_group.voiceOpsNodesSg.id}"
+  source_security_group_id = "${aws_security_group.voiceOpsMastersSg.id}"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+}
+
+resource "aws_security_group_rule" "all-node-to-node" {
+  type                     = "ingress"
+  security_group_id        = "${aws_security_group.voiceOpsNodesSg.id}"
+  source_security_group_id = "${aws_security_group.voiceOpsNodesSg.id}"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+}
+
+resource "aws_security_group_rule" "https-external-to-master-0-0-0-0--0" {
+  type              = "ingress"
+  security_group_id = "${aws_security_group.voiceOpsMastersSg.id}"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "master-egress" {
+  type              = "egress"
+  security_group_id = "${aws_security_group.voiceOpsMastersSg.id}"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "node-egress" {
+  type              = "egress"
+  security_group_id = "${aws_security_group.voiceOpsNodesSg.id}"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "node-to-master-tcp-4194" {
+  type                     = "ingress"
+  security_group_id        = "${aws_security_group.voiceOpsMastersSg.id}"
+  source_security_group_id = "${aws_security_group.voiceOpsNodesSg.id}"
+  from_port                = 4194
+  to_port                  = 4194
+  protocol                 = "tcp"
+}
+
+resource "aws_security_group_rule" "node-to-master-tcp-443" {
+  type                     = "ingress"
+  security_group_id        = "${aws_security_group.voiceOpsMastersSg.id}"
+  source_security_group_id = "${aws_security_group.voiceOpsNodesSg.id}"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+}
 
 # IAM Role/Policy Setup
 
@@ -164,7 +242,7 @@ resource "aws_launch_configuration" "voiceOpsNode" {
     image_id = "ami-8e5743e8"
     instance_type = "t2.large"
     key_name= "demo"
-    security_groups = ["${aws_security_group.voiceOpsHTTP.id}"]
+    security_groups = ["${aws_security_group.voiceOpsNodesSg.id}"]
 }
 
 # K8 Master launch config
@@ -173,7 +251,7 @@ resource "aws_launch_configuration" "voiceOpsMaster" {
     image_id = "ami-8e5743e8"
     instance_type = "t2.medium"
     key_name= "demo"
-    security_groups = ["${aws_security_group.voiceOpsHTTP.id}"]
+    security_groups = ["${aws_security_group.voiceOpsMastersSg.id}"]
 }
 
 # Bastion host launch config
@@ -182,7 +260,7 @@ resource "aws_launch_configuration" "voiceOpsBastion" {
     image_id = "ami-8e5743e8"
     instance_type = "t2.micro"
     key_name= "demo"
-    security_groups = ["${aws_security_group.voiceOpsSSH.id}"]
+    security_groups = ["${aws_security_group.voiceOpsMastersSg.id}"]
 }
 
 # AWS Auto Scaling Group Setup
@@ -202,18 +280,45 @@ resource "aws_autoscaling_group" "voiceOpsNodeASG" {
 }
 
 # K8 Master ASG
-resource "aws_autoscaling_group" "voiceOpsMasterASG" {
-  availability_zones = ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
-  name = "voiceOpsMasterASG"
-  max_size = 3
-  min_size = 3
-  desired_capacity = 3
+resource "aws_autoscaling_group" "voiceOpsMasterASG1a" {
+  availability_zones = ["eu-west-1a"]
+  name = "voiceOpsMasterASG1a"
+  max_size = 1
+  min_size = 1
+  desired_capacity = 1
   health_check_type = "EC2"
   force_delete = true
   launch_configuration = "${aws_launch_configuration.voiceOpsMaster.name}"
-  vpc_zone_identifier = ["${aws_subnet.voiceOpsSn1c.id}","${aws_subnet.voiceOpsSn1b.id}","${aws_subnet.voiceOpsSn1a.id}"]
+  vpc_zone_identifier = ["${aws_subnet.voiceOpsSn1a.id}"]
 
 }
+
+resource "aws_autoscaling_group" "voiceOpsMasterASG1b" {
+  availability_zones = ["eu-west-1b"]
+  name = "voiceOpsMasterASG1b"
+  max_size = 1
+  min_size = 1
+  desired_capacity = 1
+  health_check_type = "EC2"
+  force_delete = true
+  launch_configuration = "${aws_launch_configuration.voiceOpsMaster.name}"
+  vpc_zone_identifier = ["${aws_subnet.voiceOpsSn1b.id}"]
+
+}
+
+resource "aws_autoscaling_group" "voiceOpsMasterASG1c" {
+  availability_zones = ["eu-west-1c"]
+  name = "voiceOpsMasterASG1c"
+  max_size = 1
+  min_size = 1
+  desired_capacity = 1
+  health_check_type = "EC2"
+  force_delete = true
+  launch_configuration = "${aws_launch_configuration.voiceOpsMaster.name}"
+  vpc_zone_identifier = ["${aws_subnet.voiceOpsSn1c.id}"]
+
+}
+
 
 # K8 Bastion ASG
 resource "aws_autoscaling_group" "voiceOpsBastionASG" {
