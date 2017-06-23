@@ -150,8 +150,8 @@ resource "aws_security_group_rule" "ssh-external-to-bastion-0-0-0-0--22" {
   type                     = "ingress"
   security_group_id        = "${aws_security_group.voiceOpsBastionSg.id}"
   source_security_group_id = "${aws_security_group.voiceOpsBastionSg.id}"
-  from_port                = 0
-  to_port                  = 0
+  from_port                = 22
+  to_port                  = 22
   protocol                 = "-1"
 }
 
