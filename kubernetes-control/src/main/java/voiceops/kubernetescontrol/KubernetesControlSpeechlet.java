@@ -10,14 +10,22 @@
 package voiceops.kubernetescontrol;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.security.KeyStore;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.HashMap;
 
 import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,6 +56,8 @@ import com.amazonaws.services.s3.model.S3Object;
  */
 public class KubernetesControlSpeechlet implements Speechlet {
     private static final Logger log = LoggerFactory.getLogger(KubernetesControlSpeechlet.class);
+    
+    //String accountToken = getEnvOrDefault("K8S_ACCOUNT_TOKEN", "/var/run/secrets/kubernetes.io/serviceaccount/token");
 
    //@Override
     public void onSessionStarted(final SessionStartedRequest request, final Session session)
@@ -172,28 +182,50 @@ public class KubernetesControlSpeechlet implements Speechlet {
     }
     
     private void callKubernetesApi() {
-    	String host = "ec2-34-250-241-111.eu-west-1.compute.amazonaws.com";
+    	//String host = "ec2-34-250-241-111.eu-west-1.compute.amazonaws.com";
+    	String host = "api.k8sdemo.capademy.com";
     	String port = "443";
     	String path = "/healthz";
     	
-//    	log.info(SDKGlobalConfiguration.class.getProtectionDomain().getCodeSource().getLocation().toString());
-//    	
-//    	AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
-//    			.withRegion(Regions.EU_WEST_1)
-//    			.build();
-//    	S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "config"));
-//    	
+    	log.info(SDKGlobalConfiguration.class.getProtectionDomain().getCodeSource().getLocation().toString());
+    	
+    	try{
+    		//String token = getServiceAccountToken(accountToken);
+    		
+	    	AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
+	    			.withRegion(Regions.EU_WEST_1)
+	    			.build();
+	    	S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "k8sdemo.capademy.com/pki/issued/ca/6434398114042835278235624689.crt"));
+	    	
+	    	InputStream stream = object.getObjectContent();
+	    	
+	    	CertificateFactory cf = CertificateFactory.getInstance("X.509");
+	    	//maybe other import
+	    	X509Certificate caCert = (X509Certificate)cf.generateCertificate(stream);
+	
+	    	TrustManagerFactory tmf = TrustManagerFactory
+	    	    .getInstance(TrustManagerFactory.getDefaultAlgorithm());
+	    	KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
+	    	ks.load(null); // You don't need the KeyStore instance to come from a file.
+	    	ks.setCertificateEntry("caCert", caCert);
+	
+	    	tmf.init(ks);
+	
+	    	SSLContext sslContext = SSLContext.getInstance("TLS");
+	    	sslContext.init(null, tmf.getTrustManagers(), null);
+    	
 //        Yaml yaml = new Yaml();
 //        @SuppressWarnings("unchecked")
 //        HashMap<Object, Object> yamlParsers = (HashMap<Object, Object>) yaml.load(object.getObjectContent());
 //        log.info(Arrays.toString(yamlParsers.entrySet().toArray()));
     	
     	
-    	String PROTO = "https://";
-        try {
+	    	String PROTO = "https://";
 			URL url = new URL(PROTO + host + ":" + port + path);
 			log.info("Getting endpoints from " + url);
             HttpsURLConnection conn = (HttpsURLConnection)url.openConnection();
+            conn.setSSLSocketFactory(sslContext.getSocketFactory());
+            conn.addRequestProperty("Authorization", "Bearer " + "BEARER_TOKEN_GOES_HERE");
             
             InputStream ins = conn.getInputStream();
             InputStreamReader isr = new InputStreamReader(ins);
@@ -207,11 +239,31 @@ public class KubernetesControlSpeechlet implements Speechlet {
             }
 
             in.close();
+            stream.close();
+            isr.close();
+            ins.close();
             
             
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+    }
+    
+    private static String getEnvOrDefault(String var, String def) {
+        String val = System.getenv(var);
+        if (val == null) {
+            val = def;
+        }
+        return val;
+    }
+
+    private static String getServiceAccountToken(String file)  {
+        try {
+            return new String(Files.readAllBytes(Paths.get(file)));
+        } catch (IOException e) {
+            log.error("unable to load service account token" + file);
+            throw new RuntimeException("Unable to load services account token " + file);
+        }
     }
 }
