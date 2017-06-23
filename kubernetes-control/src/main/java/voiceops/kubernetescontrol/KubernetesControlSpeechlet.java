@@ -9,6 +9,9 @@
  */
 package voiceops.kubernetescontrol;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Arrays;
@@ -169,28 +172,41 @@ public class KubernetesControlSpeechlet implements Speechlet {
     }
     
     private void callKubernetesApi() {
-    	String host = "ec2-34-253-3-47.eu-west-1.compute.amazonaws.com";
+    	String host = "ec2-34-250-241-111.eu-west-1.compute.amazonaws.com";
     	String port = "443";
     	String path = "/healthz";
     	
-    	log.info(SDKGlobalConfiguration.class.getProtectionDomain().getCodeSource().getLocation().toString());
-    	
-    	AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
-    			.withRegion(Regions.EU_WEST_1)
-    			.build();
-    	S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "config"));
-    	
-        Yaml yaml = new Yaml();
-        @SuppressWarnings("unchecked")
-        HashMap<Object, Object> yamlParsers = (HashMap<Object, Object>) yaml.load(object.getObjectContent());
-        log.info(Arrays.toString(yamlParsers.entrySet().toArray()));
+//    	log.info(SDKGlobalConfiguration.class.getProtectionDomain().getCodeSource().getLocation().toString());
+//    	
+//    	AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
+//    			.withRegion(Regions.EU_WEST_1)
+//    			.build();
+//    	S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "config"));
+//    	
+//        Yaml yaml = new Yaml();
+//        @SuppressWarnings("unchecked")
+//        HashMap<Object, Object> yamlParsers = (HashMap<Object, Object>) yaml.load(object.getObjectContent());
+//        log.info(Arrays.toString(yamlParsers.entrySet().toArray()));
     	
     	
     	String PROTO = "https://";
         try {
 			URL url = new URL(PROTO + host + ":" + port + path);
 			log.info("Getting endpoints from " + url);
-            //HttpsURLConnection conn = (HttpsURLConnection)url.openConnection();
+            HttpsURLConnection conn = (HttpsURLConnection)url.openConnection();
+            
+            InputStream ins = conn.getInputStream();
+            InputStreamReader isr = new InputStreamReader(ins);
+            BufferedReader in = new BufferedReader(isr);
+
+            String inputLine;
+
+            while ((inputLine = in.readLine()) != null)
+            {
+              System.out.println(inputLine);
+            }
+
+            in.close();
             
             
 		} catch (Exception e) {
