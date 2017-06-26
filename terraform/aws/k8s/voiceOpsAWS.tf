@@ -128,26 +128,6 @@ resource "aws_security_group" "voiceOpsMastersSg" {
   }
 }
 
-resource "aws_security_group" "voiceOpsBastionSg" {
-  name        = "bastion.voiceops.capademy.com"
-  vpc_id      = "${aws_vpc.voiceOpsVpc.id}"
-  description = "Security group for masters"
-
-  tags = {
-    KubernetesCluster = "voiceops.capademy.com"
-    Name              = "bastion.voiceops.capademy.com"
-  }
-}
-
-resource "aws_security_group_rule" "ssh-external-to-bastion-0-0-0-0--22" {
-  type                     = "ingress"
-  security_group_id        = "${aws_security_group.voiceOpsBastionSg.id}"
-  source_security_group_id = "${aws_security_group.voiceOpsBastionSg.id}"
-  from_port                = 22
-  to_port                  = 22
-  protocol                 = "-1"
-}
-
 resource "aws_security_group_rule" "all-master-to-master" {
   type                     = "ingress"
   security_group_id        = "${aws_security_group.voiceOpsMastersSg.id}"
@@ -306,26 +286,6 @@ resource "aws_launch_configuration" "voiceOpsNode" {
     }
 }
 
-# Bastion host launch config
-resource "aws_launch_configuration" "voiceOpsBastion" {
-    name                        = "voiceOpsBastion"
-    image_id                    = "ami-7d50491b"
-    instance_type               = "t2.micro"
-    key_name                    = "demo"
-    security_groups             = ["${aws_security_group.voiceOpsMastersSg.id}"]
-    associate_public_ip_address = true
-
-    root_block_device = {
-      volume_type           = "gp2"
-      volume_size           = 20
-      delete_on_termination = true
-    }
-
-    lifecycle = {
-      create_before_destroy = true
-    }
-}
-
 # AWS Auto Scaling Group Setup
 
 # K8 Node ASG
@@ -375,20 +335,6 @@ resource "aws_autoscaling_group" "voiceOpsMasterASG1c" {
   force_delete         = true
   launch_configuration = "${aws_launch_configuration.voiceOpsMaster.name}"
   vpc_zone_identifier  = ["${aws_subnet.voiceOpsSn1c.id}"]
-
-}
-
-
-# K8 Bastion ASG
-resource "aws_autoscaling_group" "voiceOpsBastionASG" {
-  name                 = "voiceOpsBastionASG"
-  max_size             = 1
-  min_size             = 1
-  desired_capacity     = 1
-  health_check_type    = "EC2"
-  force_delete         = true
-  launch_configuration = "${aws_launch_configuration.voiceOpsBastion.name}"
-  vpc_zone_identifier  = ["${aws_subnet.voiceOpsSn1c.id}","${aws_subnet.voiceOpsSn1b.id}","${aws_subnet.voiceOpsSn1a.id}"]
 
 }
 
