@@ -174,4 +174,15 @@ resource "aws_autoscaling_group" "voiceOpsBastionASG" {
   launch_configuration = "${aws_launch_configuration.voiceOpsBastion.name}"
   vpc_zone_identifier  = ["${aws_subnet.voiceOpsBastionSn1a.id}","${aws_subnet.voiceOpsBastionSn1b.id}","${aws_subnet.voiceOpsBastionSn1c.id}"]
 
+  tag {
+    key              = "Name"
+    value            = "Bastion"
+    propagate_at_launch = true
+    }
+
+  tag {
+    key              = "KeepRunning"
+    value            = "true"
+    propagate_at_launch = true
+  }
 }
