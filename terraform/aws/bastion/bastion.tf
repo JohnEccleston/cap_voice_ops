@@ -159,6 +159,11 @@ resource "aws_launch_configuration" "voiceOpsBastion" {
     lifecycle = {
       create_before_destroy = true
     }
+    
+    provisioner "file" {
+      source                = "files/bootstrap.sh"
+      destination           = "tmp/bootstrap.sh"
+    }
 }
 
 # AWS Auto Scaling Group Setup
