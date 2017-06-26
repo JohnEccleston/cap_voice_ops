@@ -124,21 +124,29 @@ resource "aws_instance" "voiceOpsBastion" {
       volume_size           = 20
       delete_on_termination = true
     }
-    
+
     provisioner "file" {
-      source                = "files/bootstrap.sh"
-      destination           = "/tmp/bootstrap.sh"
+      source      = "files/bootstrap.sh"
+      destination = "/tmp/bootstrap.sh"
       connection {
         type                  = "ssh"
         user                  = "ec2-user"
-        private_key           = "$file("files/voiceOpsBastion.pem")"
+        private_key           = "${file("files/voiceOpsBastion.pem")}"
+      }
+    }
+    
+    provisioner "remote-exec" {
+      inline = [
+        "chmod +x /tmp/bootstrap.sh",
+        "sudo /tmp/bootstrap.sh",
+      ]
+      connection {
+        type                  = "ssh"
+        user                  = "ec2-user"
+        private_key           = "${file("files/voiceOpsBastion.pem")}"
       }
     }
 
-    provisioner "local-exec" {
-      command = "/tmp/bootstrap.sh"
-    }
-    
     tags = {
       Name              = "Bastion"
       KeepRunning       = "true"
