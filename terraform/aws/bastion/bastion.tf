@@ -7,7 +7,7 @@ provider "aws" {
 
 resource "aws_vpc" "voiceOpsBastionVpc" {
 # name                 = "bastionVpc" 
-  cidr_block           = "172.30.0.0/20"
+  cidr_block           = "172.30.30.0/24"
   enable_dns_support   = true
   enable_dns_hostnames = true
 
@@ -68,10 +68,10 @@ resource "aws_security_group" "voiceOpsBastionSg" {
 resource "aws_security_group_rule" "SshExternalToBastion" {
   type                     = "ingress"
   security_group_id        = "${aws_security_group.voiceOpsBastionSg.id}"
-  source_security_group_id = "${aws_security_group.voiceOpsBastionSg.id}"
   from_port                = 22
   to_port                  = 22
   protocol                 = "-1"
+  cidr_blocks              = ["0.0.0.0/0"]
 }
 
 resource "aws_security_group_rule" "bastion-egress" {
@@ -114,7 +114,7 @@ resource "aws_iam_instance_profile" "voiceOpsBastionInstanceProfile" {
 resource "aws_instance" "voiceOpsBastion" {
     ami                         = "ami-7d50491b"
     instance_type               = "t2.micro"
-    key_name                    = "demo"
+    key_name                    = "voiceOpsBastion"
     security_groups             = ["${aws_security_group.voiceOpsBastionSg.id}"]
     associate_public_ip_address = true
     subnet_id                   = "${aws_subnet.voiceOpsBastionSn1a.id}"
@@ -128,6 +128,11 @@ resource "aws_instance" "voiceOpsBastion" {
     provisioner "file" {
       source                = "files/bootstrap.sh"
       destination           = "/tmp/bootstrap.sh"
+      connection {
+        type                  = "ssh"
+        user                  = "ec2-user"
+        private_key           = "$file("files/voiceOpsBastion.pem")"
+      }
     }
 
     provisioner "local-exec" {
