@@ -118,7 +118,7 @@ resource "aws_instance" "voiceOpsBastion" {
     security_groups             = ["${aws_security_group.voiceOpsBastionSg.id}"]
     associate_public_ip_address = true
     subnet_id                   = "${aws_subnet.voiceOpsBastionSn1a.id}"
-    iam_instance_profile        = "${iam_instance_profile.voiceOpsBastionInstanceProfile.name}"
+    iam_instance_profile        = "${aws_iam_instance_profile.voiceOpsBastionInstanceProfile.name}"
 
     root_block_device = {
       volume_type           = "gp2"

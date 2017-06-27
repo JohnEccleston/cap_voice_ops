@@ -28,6 +28,27 @@
     {
       "Effect": "Allow",
       "Action": [
+        "iam:*"
+      ],
+      "Resource": [
+        "*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "autoscaling:Describe*",
+        "cloudwatch:*",
+        "logs:*",
+        "sns:*"
+      ],
+      "Resource": [
+        "*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
         "elasticloadbalancing:*"
       ],
       "Resource": [
