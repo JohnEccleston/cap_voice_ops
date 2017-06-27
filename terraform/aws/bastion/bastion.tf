@@ -58,28 +58,28 @@ resource "aws_route_table_association" "voiceOpsBastionRta1a" {
 resource "aws_security_group" "voiceOpsBastionSg" {
   name        = "bastion.voiceops.capademy.com"
   vpc_id      = "${aws_vpc.voiceOpsBastionVpc.id}"
-  description = "Security group for nodes"
+  description = "Security group for bastion"
 
   tags = {
     Name              = "bastion.voiceops.capademy.com"
   }
 }
 
-resource "aws_security_group_rule" "SshExternalToBastion" {
+resource "aws_security_group_rule" "sshBastionIngress" {
   type                     = "ingress"
   security_group_id        = "${aws_security_group.voiceOpsBastionSg.id}"
   from_port                = 22
   to_port                  = 22
-  protocol                 = "-1"
+  protocol                 = "tcp"
   cidr_blocks              = ["0.0.0.0/0"]
 }
 
-resource "aws_security_group_rule" "bastion-egress" {
+resource "aws_security_group_rule" "bastionEgress" {
   type              = "egress"
   security_group_id = "${aws_security_group.voiceOpsBastionSg.id}"
   from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
+  to_port           = 65535
+  protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
 }
 
