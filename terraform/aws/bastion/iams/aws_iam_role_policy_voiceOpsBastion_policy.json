@@ -4,13 +4,7 @@
     {
       "Effect": "Allow",
       "Action": [
-        "ecr:GetAuthorizationToken",
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:GetDownloadUrlForLayer",
-        "ecr:GetRepositoryPolicy",
-        "ecr:DescribeRepositories",
-        "ecr:ListImages",
-        "ecr:BatchGetImage"
+        "ecr:*"
       ],
       "Resource": [
         "*"
@@ -37,10 +31,7 @@
     {
       "Effect": "Allow",
       "Action": [
-        "autoscaling:Describe*",
-        "cloudwatch:*",
-        "logs:*",
-        "sns:*"
+        "autoscaling:*"
       ],
       "Resource": [
         "*"
@@ -58,39 +49,7 @@
     {
       "Effect": "Allow",
       "Action": [
-        "autoscaling:DescribeAutoScalingGroups",
-        "autoscaling:DescribeAutoScalingInstances",
-        "autoscaling:SetDesiredCapacity",
-        "autoscaling:TerminateInstanceInAutoScalingGroup"
-      ],
-      "Resource": [
-        "*"
-      ]
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "route53:ChangeResourceRecordSets",
-        "route53:ListResourceRecordSets",
-        "route53:GetHostedZone"
-      ],
-      "Resource": [
-        "*"
-      ]
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "route53:GetChange"
-      ],
-      "Resource": [
-        "arn:aws:route53:::change/*"
-      ]
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "route53:ListHostedZones"
+        "route53:*"
       ],
       "Resource": [
         "*"
@@ -100,16 +59,6 @@
       "Effect": "Allow",
       "Action": [
         "s3:*"
-      ],
-      "Resource": [
-        "*"
-      ]
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "s3:GetBucketLocation",
-        "s3:ListBucket"
       ],
       "Resource": [
         "*"
