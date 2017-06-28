@@ -9,43 +9,8 @@
  */
 package voiceops.kubernetescontrol;
 
-import java.io.*;
-import java.net.*;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.security.KeyStore;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
-import java.util.Arrays;
-import java.util.HashMap;
-
-import javax.net.ssl.*;
-
-import com.google.gson.Gson;
-import org.apache.commons.io.IOUtils;
-import org.apache.http.HttpConnection;
-import org.apache.http.HttpResponse;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.yaml.snakeyaml.Yaml;
-
 import com.amazon.speech.slu.Intent;
-import com.amazon.speech.slu.Slot;
-import com.amazon.speech.speechlet.IntentRequest;
-import com.amazon.speech.speechlet.LaunchRequest;
-import com.amazon.speech.speechlet.Session;
-import com.amazon.speech.speechlet.SessionEndedRequest;
-import com.amazon.speech.speechlet.SessionStartedRequest;
-import com.amazon.speech.speechlet.Speechlet;
-import com.amazon.speech.speechlet.SpeechletException;
-import com.amazon.speech.speechlet.SpeechletResponse;
+import com.amazon.speech.speechlet.*;
 import com.amazon.speech.ui.PlainTextOutputSpeech;
 import com.amazon.speech.ui.Reprompt;
 import com.amazon.speech.ui.SimpleCard;
@@ -55,9 +20,26 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
-import sun.net.www.http.HttpClient;
-
+import com.google.gson.Gson;
+import com.sun.jersey.api.client.Client;
+import com.sun.jersey.api.client.ClientResponse;
+import com.sun.jersey.api.client.WebResource;
+import com.sun.jersey.api.client.filter.HTTPBasicAuthFilter;
 import io.fabric8.kubernetes.api.model.PodList;
+import io.fabric8.kubernetes.api.model.PodTemplate;
+import io.fabric8.kubernetes.api.model.PodTemplateList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.Yaml;
+
+import javax.net.ssl.*;
+import javax.ws.rs.core.MediaType;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.security.cert.X509Certificate;
+import java.util.HashMap;
+import java.util.List;
 
 /**
  * This sample shows how to create a simple speechlet for handling speechlet requests.
@@ -199,42 +181,18 @@ public class KubernetesControlSpeechlet implements Speechlet {
     	log.info(SDKGlobalConfiguration.class.getProtectionDomain().getCodeSource().getLocation().toString());
     	
     	try{
-    		//String token = getServiceAccountToken(accountToken);
-    		
-	    	AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
-	    			.withRegion(Regions.EU_WEST_1)
-	    			.build();
-//	    	S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "k8sdemo.capademy.com/pki/issued/ca/6434398114042835278235624689.crt"));
-	    	S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "access/creds.yml"));
 
-//	    	InputStream stream = object.getObjectContent();
-//
-//	    	CertificateFactory cf = CertificateFactory.getInstance("X.509");
-//	    	//maybe other import
-//	    	X509Certificate caCert = (X509Certificate)cf.generateCertificate(stream);
-//
-//	    	TrustManagerFactory tmf = TrustManagerFactory
-//	    	    .getInstance(TrustManagerFactory.getDefaultAlgorithm());
-//	    	KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
-//	    	ks.load(null); // You don't need the KeyStore instance to come from a file.
-//	    	ks.setCertificateEntry("caCert", caCert);
-//
-//	    	tmf.init(ks);
-//
-//	    	SSLContext sslContext = SSLContext.getInstance("TLS");
-//	    	sslContext.init(null, tmf.getTrustManagers(), null);
-    	
+        AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
+            .withRegion(Regions.EU_WEST_1)
+            .build();
+        S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "access/creds.yml"));
+
         Yaml yaml = new Yaml();
         @SuppressWarnings("unchecked")
         HashMap<Object, Object> yamlParsers = (HashMap<Object, Object>) yaml.load(object.getObjectContent());
-//        log.info(Arrays.toString(yamlParsers.entrySet().toArray()));
         final String user = yamlParsers.get("user").toString();
         final String password = yamlParsers.get("password").toString();
 
-
-	    	String PROTO = "https://";
-			  URL url = new URL(PROTO + host + /* ":" + port + */ path);
-			  log.info("Getting endpoints from " + url);
 
         // Create a trust manager that does not validate certificate chains
         TrustManager[] trustAllCerts = new TrustManager[] {new X509TrustManager() {
@@ -259,59 +217,56 @@ public class KubernetesControlSpeechlet implements Speechlet {
             return true;
           }
         };
-
-        // Install the all-trusting host verifier
-        HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
-
-        Authenticator.setDefault (new Authenticator() {
-          protected PasswordAuthentication getPasswordAuthentication() {
-            return new PasswordAuthentication(user, password.toCharArray());
-          }
-        });
-
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-
-
-//            HttpsURLConnection conn = (HttpsURLConnection)url.openConnection();
-//            conn.setSSLSocketFactory(sslContext.getSocketFactory());
-//            conn.addRequestProperty("Authorization", "Bearer " + "BEARER_TOKEN_GOES_HERE");
 //
+//        // Install the all-trusting host verifier
+//        HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
+//
+//        Authenticator.setDefault (new Authenticator() {
+//          protected PasswordAuthentication getPasswordAuthentication() {
+//            return new PasswordAuthentication(user, password.toCharArray());
+//          }
+//        });
 
-//            Gson g = new Gson();
-//            log.info("response = " + conn.getInputStream().toString());
-//            final BufferedReader reader =
-//              new BufferedReader(new InputStreamReader(conn.getInputStream()));
-//            g.fromJson(reader, PodList.class);
-//            PodList podlist = g.fromJson(conn.getResponseMessage(), PodList.class);
+        log.info("About to create the client");
 
-            log.info("response = " + conn.getResponseMessage());
-            log.info("content = " + conn.getContent());
-            log.info("content string = " + conn.getContent().toString());
+        Client client = Client.create();
+        client.addFilter(new HTTPBasicAuthFilter(user, password));
 
-        StringWriter writer = new StringWriter();
-        IOUtils.copy(conn.getInputStream(), writer, StandardCharsets.UTF_8);
-        String theString = writer.toString();
-        log.info("the string = " + theString);
+        log.info("Created Client");
 
-            InputStream ins = conn.getInputStream();
-            InputStreamReader isr = new InputStreamReader(ins);
-            BufferedReader in = new BufferedReader(isr);
+        WebResource webResource = client
+            .resource("https://" + host + path);
 
-            String inputLine;
+        log.info("Created WebResource");
 
-            while ((inputLine = in.readLine()) != null)
-            {
-              System.out.println(inputLine);
-            }
+//        PodList response = webResource.accept(MediaType.APPLICATION_JSON)
+//            .get(PodList.class);
 
-            in.close();
-//            stream.close();
-            isr.close();
-            ins.close();
-            
+        ClientResponse r1 = webResource.accept(MediaType.APPLICATION_JSON)
+            .get(ClientResponse.class);
+        log.info("Called the Client");
+
+
+        if (r1.getStatus() != 200) {
+          throw new RuntimeException("Failed : HTTP error code : "
+              + r1.getStatus());
+        }
+
+        log.info("Status is " + r1.getStatus());
+
+//        String output = response.getApiVersion();
+//        String output = r1.getEntity(String.class);
+
+        Gson gson = new Gson();
+        PodTemplateList podList = gson.fromJson(r1.getEntity(String.class), PodTemplateList.class );
+
+        log.info(podList.getApiVersion());
+        List<PodTemplate> pt = podList.getItems();
+
             
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
+        log.error("I have gone bang! " + e.getMessage());
 			e.printStackTrace();
 		}
     }
