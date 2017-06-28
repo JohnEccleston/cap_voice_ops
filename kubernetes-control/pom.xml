@@ -102,11 +102,16 @@
       <version>1.17</version>
     </dependency>
     <!-- https://mvnrepository.com/artifact/io.fabric8/kubernetes-api -->
-    <dependency>
+   <!--  <dependency>
       <groupId>io.fabric8</groupId>
       <artifactId>kubernetes-api</artifactId>
       <version>2.2.215</version>
-    </dependency>
+    </dependency> -->
+    <dependency>
+            <groupId>io.fabric8</groupId>
+            <artifactId>kubernetes-api</artifactId>
+            <version>2.2.101</version>
+        </dependency>
     <!-- https://mvnrepository.com/artifact/com.google.code.gson/gson -->
     <dependency>
       <groupId>com.google.code.gson</groupId>

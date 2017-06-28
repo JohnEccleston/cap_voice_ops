@@ -21,6 +21,10 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
@@ -38,6 +42,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -46,6 +51,10 @@ import java.util.List;
  */
 public class KubernetesControlSpeechlet implements Speechlet {
     private static final Logger log = LoggerFactory.getLogger(KubernetesControlSpeechlet.class);
+    
+    Client client = Client.create();
+    
+    
     
     //String accountToken = getEnvOrDefault("K8S_ACCOUNT_TOKEN", "/var/run/secrets/kubernetes.io/serviceaccount/token");
 
@@ -70,18 +79,60 @@ public class KubernetesControlSpeechlet implements Speechlet {
             throws SpeechletException {
         log.info("onIntent requestId={}, sessionId={}", request.getRequestId(),
                 session.getSessionId());
-        log.info("full request = ", request.toString());
+        log.info("full request = ", request);
 
         Intent intent = request.getIntent();
-        //Slot slot = intent.getSlot("name");
-        
-        
         
         String intentName = (intent != null) ? intent.getName() : null;
+        
+        try{
+
+            AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
+                .withRegion(Regions.EU_WEST_1)
+                .build();
+            S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "access/creds.yml"));
+
+            Yaml yaml = new Yaml();
+            @SuppressWarnings("unchecked")
+            HashMap<Object, Object> yamlParsers = (HashMap<Object, Object>) yaml.load(object.getObjectContent());
+            final String user = yamlParsers.get("user").toString();
+            final String password = yamlParsers.get("password").toString();
+        
+            client.addFilter(new HTTPBasicAuthFilter(user, password));
+            
+            TrustManager[] trustAllCerts = new TrustManager[] {new X509TrustManager() {
+                public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                  return null;
+                }
+                public void checkClientTrusted(X509Certificate[] certs, String authType) {
+                }
+                public void checkServerTrusted(X509Certificate[] certs, String authType) {
+                }
+              }
+              };
+            
+            // Install the all-trusting trust manager
+            SSLContext sc = SSLContext.getInstance("SSL");
+            sc.init(null, trustAllCerts, new java.security.SecureRandom());
+            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+
+            // Create all-trusting host name verifier
+            HostnameVerifier allHostsValid = new HostnameVerifier() {
+              public boolean verify(String hostname, SSLSession session) {
+                return true;
+              }
+            };
+        }
+        catch(Exception ex) {
+        	log.error("Failure getting creds! " + ex.getMessage());
+			ex.printStackTrace();
+        }
 
         if ("CreateCluster".equals(intentName)) {
         	callKubernetesApi();
             return getCreateClusterResponse();
+        } else if("GetPodStatus".equals(intentName)) {
+        	return getPodStatusResponse(request.getIntent());
         } else if ("AMAZON.HelpIntent".equals(intentName)) {
             return getHelpResponse();
         } else {
@@ -89,7 +140,65 @@ public class KubernetesControlSpeechlet implements Speechlet {
         }
     }
 
-    //@Override
+    private SpeechletResponse getPodStatusResponse(Intent intent) {
+    	
+    	String host = "api.k8sdemo.capademy.com";
+    	String path = "/api/v1/namespaces/kube-system/pods";
+    	
+    	WebResource webResource = client
+                .resource("https://" + host + path);
+    	
+    	 ClientResponse r1 = webResource.accept(MediaType.APPLICATION_JSON)
+    	            .get(ClientResponse.class);
+    	        log.info("Called the Client");
+
+
+        if (r1.getStatus() != 200) {
+          throw new RuntimeException("Failed : HTTP error code : "
+              + r1.getStatus());
+        }
+    	
+        String output = r1.getEntity(String.class);
+
+        Gson gson = new Gson();
+        
+        JsonObject jsonObject = new JsonParser().parse(output).getAsJsonObject();
+        
+        JsonArray items = jsonObject.get("items").getAsJsonArray();
+        
+        List<Pod> pods = new ArrayList<Pod>();
+        
+        for (JsonElement item : items) {
+        	Pod pod = new Pod();
+      	  	pod.setName(item.getAsJsonObject().get("metadata").getAsJsonObject().get("name").getAsString());
+      	  	pod.setStatus(item.getAsJsonObject().get("status").getAsJsonObject().get("phase").getAsString());
+      	    pods.add(pod);
+      	}
+		
+		return getPodStatusSpeech(pods);
+	}
+
+	private SpeechletResponse getPodStatusSpeech(List<Pod> pods) {
+		
+		StringBuilder sb = new StringBuilder("I will now list the pods for this environment " +
+				"and their statuses. ");
+		
+		for(Pod pod : pods) {
+			sb.append(pod.getName() + ", " + pod.getStatus() + ". ");
+		}
+		sb.append(" Thanks");
+		 // Create the Simple card content.
+        SimpleCard card = new SimpleCard();
+        card.setTitle("VoiceOps");
+        card.setContent(sb.toString());
+        
+        PlainTextOutputSpeech speech = new PlainTextOutputSpeech();
+        speech.setText(sb.toString());
+        
+		return SpeechletResponse.newTellResponse(speech, card);
+	}
+
+	//@Override
     public void onSessionEnded(final SessionEndedRequest request, final Session session)
             throws SpeechletException {
         log.info("onSessionEnded requestId={}, sessionId={}", request.getRequestId(),
@@ -182,45 +291,45 @@ public class KubernetesControlSpeechlet implements Speechlet {
     	
     	try{
 
-        AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
-            .withRegion(Regions.EU_WEST_1)
-            .build();
-        S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "access/creds.yml"));
-
-        Yaml yaml = new Yaml();
-        @SuppressWarnings("unchecked")
-        HashMap<Object, Object> yamlParsers = (HashMap<Object, Object>) yaml.load(object.getObjectContent());
-        final String user = yamlParsers.get("user").toString();
-        final String password = yamlParsers.get("password").toString();
-
-
-        // Create a trust manager that does not validate certificate chains
-        TrustManager[] trustAllCerts = new TrustManager[] {new X509TrustManager() {
-          public java.security.cert.X509Certificate[] getAcceptedIssuers() {
-            return null;
-          }
-          public void checkClientTrusted(X509Certificate[] certs, String authType) {
-          }
-          public void checkServerTrusted(X509Certificate[] certs, String authType) {
-          }
-        }
-        };
-
-        // Install the all-trusting trust manager
-        SSLContext sc = SSLContext.getInstance("SSL");
-        sc.init(null, trustAllCerts, new java.security.SecureRandom());
-        HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
-
-        // Create all-trusting host name verifier
-        HostnameVerifier allHostsValid = new HostnameVerifier() {
-          public boolean verify(String hostname, SSLSession session) {
-            return true;
-          }
-        };
+//        AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
+//            .withRegion(Regions.EU_WEST_1)
+//            .build();
+//        S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "access/creds.yml"));
+//
+//        Yaml yaml = new Yaml();
+//        @SuppressWarnings("unchecked")
+//        HashMap<Object, Object> yamlParsers = (HashMap<Object, Object>) yaml.load(object.getObjectContent());
+//        final String user = yamlParsers.get("user").toString();
+//        final String password = yamlParsers.get("password").toString();
+//
+//
+//        // Create a trust manager that does not validate certificate chains
+//        TrustManager[] trustAllCerts = new TrustManager[] {new X509TrustManager() {
+//          public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+//            return null;
+//          }
+//          public void checkClientTrusted(X509Certificate[] certs, String authType) {
+//          }
+//          public void checkServerTrusted(X509Certificate[] certs, String authType) {
+//          }
+//        }
+//        };
+//
+//        // Install the all-trusting trust manager
+//        SSLContext sc = SSLContext.getInstance("SSL");
+//        sc.init(null, trustAllCerts, new java.security.SecureRandom());
+//        HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+//
+//        // Create all-trusting host name verifier
+//        HostnameVerifier allHostsValid = new HostnameVerifier() {
+//          public boolean verify(String hostname, SSLSession session) {
+//            return true;
+//          }
+//        };
 //
 //        // Install the all-trusting host verifier
 //        HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
-//
+
 //        Authenticator.setDefault (new Authenticator() {
 //          protected PasswordAuthentication getPasswordAuthentication() {
 //            return new PasswordAuthentication(user, password.toCharArray());
@@ -229,8 +338,8 @@ public class KubernetesControlSpeechlet implements Speechlet {
 
         log.info("About to create the client");
 
-        Client client = Client.create();
-        client.addFilter(new HTTPBasicAuthFilter(user, password));
+        //Client client = Client.create();
+        //client.addFilter(new HTTPBasicAuthFilter(user, password));
 
         log.info("Created Client");
 
@@ -256,12 +365,14 @@ public class KubernetesControlSpeechlet implements Speechlet {
 
 //        String output = response.getApiVersion();
 //        String output = r1.getEntity(String.class);
-
+        
         Gson gson = new Gson();
         PodTemplateList podList = gson.fromJson(r1.getEntity(String.class), PodTemplateList.class );
 
         log.info(podList.getApiVersion());
         List<PodTemplate> pt = podList.getItems();
+        
+        PodTemplate pod = pt.get(1);
 
             
 		} catch (Exception e) {
