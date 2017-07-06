@@ -165,17 +165,20 @@ public class KubernetesControlSpeechlet implements Speechlet {
     	try {
     		
     		DeleteOptions deleteOptions = new DeleteOptions();
+					deleteOptions.setKind("DeleteOptions");
+					deleteOptions.setApiVersion("apps/v1beta1");
     	    deleteOptions.setGracePeriodSeconds(10L);
     	    deleteOptions.setOrphanDependents(false);
     	    
     	    Gson gson = new Gson();
     	    String deploymentDelete = gson.toJson(deleteOptions);
+					String deleteManipulated = deploymentDelete.replace("{}", "{},\"propagationPolicy\":\"Foreground\"");
 
     		
     		String depPath =
-    		          String.format("/apis/extensions/v1beta1/namespaces/%s/deployments/%s", nameSpace.toLowerCase(), podName.toLowerCase());
+    		          String.format("/apis/apps/v1beta1/namespaces/%s/deployments/%s", nameSpace.toLowerCase(), podName.toLowerCase());
     		      WebResource deployment = client.resource("https://" + HOST + depPath);
-    		      ClientResponse response = deployment.type(MediaType.APPLICATION_JSON).delete(ClientResponse.class, deploymentDelete);
+    		      ClientResponse response = deployment.type(MediaType.APPLICATION_JSON).delete(ClientResponse.class, deleteManipulated);
     		      if (response.getStatus() != 200) {
     		    	  if(response.getStatus() == 404) {
     		    		  return getTellSpeechletResponse("Cannot delete " + podName + " deployment as it doesn't exist.");
