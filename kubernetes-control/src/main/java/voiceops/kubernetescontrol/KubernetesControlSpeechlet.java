@@ -229,7 +229,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 							podName +
 							" deployment as a deployment with that name already exists.");
 			}
-			log.error("Failed in call to delete deployment : HTTP error code : "
+			log.error("Failed in call to create deployment : HTTP error code : "
 					+ response.getStatus());
 
 			return getTellSpeechletResponse("Problem when talking to kubernetes API. Deployment has not been created");
@@ -261,7 +261,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 			if(response.getStatus() == 409) {
 				return getTellSpeechletResponse("Cannot create service " + podName + " as it already exists. Deployment has been created.");
 			}
-			log.error("Failed in call to delete deployment : HTTP error code : "
+			log.error("Failed in call to create deployment : HTTP error code : "
 					+ response.getStatus());
 
 			return getTellSpeechletResponse("Problem when talking to kubernetes API. Service has not been created, but deployment may have been.");
@@ -290,7 +290,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
     	}
     	log.info("podName = " + podName);
     	
-    	String speech = "Are you sure you want delete this deployment?";
+    	String speech = "Are you sure you want to delete this deployment?";
 		
 		session.setAttribute("delete", nameSpace + ":" + podName);
 		return getAskSpeechletResponse(speech, speech);
@@ -304,7 +304,6 @@ public class KubernetesControlSpeechlet implements Speechlet {
 					deleteOptions.setKind("DeleteOptions");
 					deleteOptions.setApiVersion("apps/v1beta1");
     	    deleteOptions.setGracePeriodSeconds(10L);
-    	    deleteOptions.setOrphanDependents(false);
     	    
 				Gson gson = new Gson();
 				String deploymentDelete = gson.toJson(deleteOptions);
@@ -330,7 +329,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 
       	WebResource service = client.resource("https://" + HOST + servicePath);
       	ClientResponse serviceResponse = service.type(MediaType.APPLICATION_JSON).delete(ClientResponse.class);
-      	if (serviceResponse.getStatus() != 200 || serviceResponse.getStatus() == 404) {
+      	if (serviceResponse.getStatus() != 200 && serviceResponse.getStatus() != 404) {
 					log.error("Failed in call to delete service : HTTP error code : "
 							+ response.getStatus());
 
@@ -635,11 +634,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
      * @return SpeechletResponse spoken and visual response for the given intent
      */
     private SpeechletResponse getWelcomeResponse() {
-        String speechText = "Welcome to Voice Ops, I can get the statuses of clusters, "
-        		+ "scale clusters, "
-        		+ "make deployements, "
-        		+ "delete deployments,  "
-        		+ "and hopefully in the future take over the world!";
+        String speechText = "Welcome to Voice Ops!";
 
         // Create the Simple card content.
         SimpleCard card = new SimpleCard();
