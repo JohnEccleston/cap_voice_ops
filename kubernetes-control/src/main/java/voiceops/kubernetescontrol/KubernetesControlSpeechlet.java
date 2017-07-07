@@ -60,6 +60,8 @@ public class KubernetesControlSpeechlet implements Speechlet {
     private static final String SLOT_SCALE = "scale";
     private static final String SLOT_SCALE_NUMBER = "scaleNumber";
     private static final String SLOT_POD_NAME = "podName";
+    private static final String SLOT_DEPLOYMENT_NAME = "deployment";
+    private static final String SLOT_DEPLOYMENT_TYPE = "deploymentType";
     private static final String HOST = "api.k8sdemo.capademy.com";
     
    //@Override
@@ -104,6 +106,8 @@ public class KubernetesControlSpeechlet implements Speechlet {
         	return scalePod(request.getIntent(), session);
         }else if("DeleteDeployment".equals(intentName)) {
         	return deleteDeployment(request.getIntent(), session);
+        }else if("CreateDeployment".equals(intentName)) {
+        	return createDeployment(request.getIntent(), session);
         }else if ("AMAZON.HelpIntent".equals(intentName)) {
             return getHelpResponse();
         } else if ("AMAZON.StopIntent".equals(intentName)) {
@@ -115,12 +119,33 @@ public class KubernetesControlSpeechlet implements Speechlet {
         }
     }
 
-    private SpeechletResponse deleteDeployment(Intent intent, Session session) {
+    private SpeechletResponse createDeployment(Intent intent, Session session) {
+		String nameSpace  = intent.getSlot(SLOT_NAME_SPACE).getValue();;
+		String deployment = intent.getSlot(SLOT_DEPLOYMENT_NAME).getValue();
+		String deploymentType = intent.getSlot(SLOT_DEPLOYMENT_TYPE).getValue();
+		
+		if(nameSpace == null) {
+   		 String speechText = "Sorry, I did not hear the name space name. Please say again?" +
+   				 	"For example, You can say - Create deployment, deployment name in name Space";
+            return getAskSpeechletResponse(speechText, speechText);
+	   	}
+	   	log.info("nameSpace = " + nameSpace);
+	   	
+	   	if(deployment == null) {
+	  		 String speechText = "Sorry, I did not hear the pod name. Please say again?" +
+	  				 	"For example, You can say - Delete pod Name from name Space";
+	           return getAskSpeechletResponse(speechText, speechText);
+	   	}
+	   	log.info("podName = " + deployment);
+			return null;
+		}
+
+	private SpeechletResponse deleteDeployment(Intent intent, Session session) {
     	String nameSpace = intent.getSlot(SLOT_NAME_SPACE).getValue();
     	
     	if(nameSpace == null) {
     		 String speechText = "Sorry, I did not hear the name space name. Please say again?" +
-    				 	"For example, You can say - Delete podName from nameSpace";
+    				 	"For example, You can say - Delete pod Name from name Space";
              return getAskSpeechletResponse(speechText, speechText);
     	}
     	log.info("nameSpace = " + nameSpace);
@@ -129,7 +154,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
     	
     	if(podName == null) {
    		 String speechText = "Sorry, I did not hear the pod name. Please say again?" +
-   				 	"For example, You can say - Delete podName from nameSpace";
+   				 	"For example, You can say - Delete pod Name from name Space";
             return getAskSpeechletResponse(speechText, speechText);
     	}
     	log.info("podName = " + podName);
@@ -200,8 +225,8 @@ public class KubernetesControlSpeechlet implements Speechlet {
     	
     	if(nameSpace == null) {
     		 String speechText = "Sorry, I did not hear the name space name. Please say again?" +
-    				 	"For example, You can say - Scale podName in nameSpace to 5, or, " +
-    				     "You can say - Scale up/down podName in nameSpace";
+    				 	"For example, You can say - Scale pod name in name space to 5, or, " +
+    				     "You can say - Scale up/down pod name in name space";
              return getAskSpeechletResponse(speechText, speechText);
     	}
     	
@@ -211,8 +236,8 @@ public class KubernetesControlSpeechlet implements Speechlet {
     	
     	if(podName == null) {
    		 String speechText = "Sorry, I did not hear the pod name. Please say again?" +
-   				 	"For example, You can say - Scale podName in nameSpace to 5, or, " +
-   				     "You can say - Scale up/down podName in nameSpace";
+   				 	"For example, You can say - Scale pod name in name space to 5, or, " +
+   				     "You can say - Scale up/down pod name in name space";
             return getAskSpeechletResponse(speechText, speechText);
     	}
     	log.info("podName = " + podName);
@@ -236,8 +261,8 @@ public class KubernetesControlSpeechlet implements Speechlet {
                 scaleNumberInt = Integer.parseInt(intent.getSlot(SLOT_SCALE_NUMBER).getValue());
             } catch (NumberFormatException e) {
             	String speechText = "Sorry, I did not hear the number you wanted to scale by. Please say again?" +
-       				 	"For example, You can say - Scale podName in nameSpace to 5, or, " +
-       				     "You can say - Scale up/down podName in nameSpace";
+       				 	"For example, You can say - Scale pod name in name space to 5, or, " +
+       				     "You can say - Scale up/down pod name in name space";
                 return getAskSpeechletResponse(speechText, speechText);
             }
     		return scaleByNumber(nameSpace, podName, scaleNumberInt, depScaleIn);
@@ -247,8 +272,8 @@ public class KubernetesControlSpeechlet implements Speechlet {
     	}
 
 		String speechText = "Sorry, I did not hear how you wanted to scale. Please say again?" +
-			 	"For example, You can say - Scale podName in nameSpace to 5, or, " +
-			     "You can say - Scale up/down podName in nameSpace";
+			 	"For example, You can say - Scale pod name in name space to 5, or, " +
+			     "You can say - Scale up/down pod name in name space";
         return getAskSpeechletResponse(speechText, speechText);
 	}
 
@@ -345,16 +370,12 @@ public class KubernetesControlSpeechlet implements Speechlet {
 		return getTellSpeechletResponse("Sorry, I'm not sure what action you are trying to confirm.");
 	}
 
-	private SpeechletResponse getlistAllPodStatusResponse(Intent intent, Session session) {
-    	 
-    	 Object obj = session.getAttribute("pods");
-    	     	 
-    	 ObjectMapper mapper = new ObjectMapper();
-    	 
-    	 List<Pod> pods = mapper.convertValue(obj, new TypeReference<List<Pod>>() { });
-
-    	 return getPodStatusSpeech(pods);
-	}
+//	private SpeechletResponse getlistAllPodStatusResponse(Intent intent, Session session) {
+//    	 Object obj = session.getAttribute("pods"); 	 
+//    	 ObjectMapper mapper = new ObjectMapper();
+//    	 List<Pod> pods = mapper.convertValue(obj, new TypeReference<List<Pod>>() { });
+//    	 return getPodStatusSpeech(pods);
+//	}
 
 	private SpeechletResponse getPodStatusResponse(Intent intent, Session session) {
     	
