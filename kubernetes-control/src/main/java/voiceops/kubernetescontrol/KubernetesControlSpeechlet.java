@@ -169,16 +169,16 @@ public class KubernetesControlSpeechlet implements Speechlet {
 					dep = postgresModel.getDeployment();
 					createDeployment(client, HOST, podName, nameSpace, dep);
 				} else {
-					throw new RuntimeException("No images found for " + deployType);
+					return getTellSpeechletResponse(String.format("No images found for %s, please check and try again", deployType));
 				}
 
 			} catch (Exception ex) {
 				log.error("Exception when calling deploy deployment api");
 				log.error(ex.getMessage());
 				ex.printStackTrace();
-				return getTellSpeechletResponse("Problem when talking to kubernetes API.");
+				return getTellSpeechletResponse("Problem when talking to kubernetes API. No deployment was made.");
 			}
-			return getTellSpeechletResponse(podName + " has been deployed from " + nameSpace);
+			return getTellSpeechletResponse(String.format("%s has been deployed to %s", podName, nameSpace));
 		}
 
 
