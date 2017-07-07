@@ -32,11 +32,17 @@ import com.sun.jersey.api.client.WebResource;
 import com.sun.jersey.api.client.filter.HTTPBasicAuthFilter;
 
 import io.fabric8.kubernetes.api.model.DeleteOptions;
+import io.fabric8.kubernetes.api.model.Service;
+import io.fabric8.kubernetes.api.model.extensions.Deployment;
 import io.fabric8.kubernetes.api.model.extensions.Scale;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
+import voiceops.kubernetescontrol.model.NginxModel;
+import voiceops.kubernetescontrol.model.NginxServiceModel;
+import voiceops.kubernetescontrol.model.PostgresModel;
+import voiceops.kubernetescontrol.model.ServeHostnameModel;
 
 import javax.net.ssl.*;
 import javax.ws.rs.core.MediaType;
@@ -62,6 +68,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
     private static final String SLOT_POD_NAME = "podName";
     private static final String SLOT_DEPLOYMENT_NAME = "deployment";
     private static final String SLOT_DEPLOYMENT_TYPE = "deploymentType";
+    private static final String SLOT_DEPLOY_TYPE = "deployType";
     private static final String HOST = "api.k8sdemo.capademy.com";
     
    //@Override
@@ -108,6 +115,8 @@ public class KubernetesControlSpeechlet implements Speechlet {
         	return deleteDeployment(request.getIntent(), session);
         }else if("CreateDeployment".equals(intentName)) {
         	return createDeployment(request.getIntent(), session);
+		} else if("DeployDeployment".equals(intentName)) {
+        	return deployDeployment(request.getIntent(), session);
         }else if ("AMAZON.HelpIntent".equals(intentName)) {
             return getHelpResponse();
         } else if ("AMAZON.StopIntent".equals(intentName)) {
@@ -140,7 +149,125 @@ public class KubernetesControlSpeechlet implements Speechlet {
 			return null;
 		}
 
-	private SpeechletResponse deleteDeployment(Intent intent, Session session) {
+    private SpeechletResponse deployDeployment(Intent intent, Session session) {
+			String nameSpace = intent.getSlot(SLOT_NAME_SPACE).getName();
+			if (nameSpace == null) {
+				String speechText = "Sorry, I did not hear the name space. Please say again?" +
+						"For example, You can say - deploy image to nameSpace with podName";
+				return getAskSpeechletResponse(speechText, speechText);
+			}
+			log.info("nameSpace = " + nameSpace);
+
+			String podName = intent.getSlot(SLOT_POD_NAME).getName();
+			if (podName == null) {
+				String speechText = "Sorry, I did not hear the pod name. Please say again?" +
+						"For example, You can say - deploy image to nameSpace with podName";
+				return getAskSpeechletResponse(speechText, speechText);
+			}
+			log.info("podName = " + podName);
+
+			String deployType = intent.getSlot(SLOT_DEPLOY_TYPE).getName();
+			if (deployType == null) {
+				String speechText = "Sorry, I did not hear the image name. Please say again?" +
+						"For example, You can say - deploy image to nameSpace with podName";
+				return getAskSpeechletResponse(speechText, speechText);
+			}
+			log.info("deployType = " + deployType);
+
+			try {
+				Deployment dep;
+
+				if (deployType.contains("ngin")) {
+					NginxModel nginxModel = new NginxModel(podName);
+					dep = nginxModel.getDeployment();
+					SpeechletResponse response = createDeployment(client, HOST, podName, nameSpace, dep);
+					if (!response.getOutputSpeech().toString().contains("has been deployed to")) {
+						return response;
+					}
+					return createService(client, HOST, podName, nameSpace);
+				} else if (deployType.equalsIgnoreCase("serve")) {
+					ServeHostnameModel serveHostnameModel = new ServeHostnameModel(podName);
+					dep = serveHostnameModel.getDeployment();
+					createDeployment(client, HOST, podName, nameSpace, dep);
+				} else if (deployType.equalsIgnoreCase("postgres")) {
+					PostgresModel postgresModel = new PostgresModel(podName);
+					dep = postgresModel.getDeployment();
+					createDeployment(client, HOST, podName, nameSpace, dep);
+				} else {
+					throw new RuntimeException("No images found for " + deployType);
+				}
+
+			} catch (Exception ex) {
+				log.error("Exception when calling deploy deployment api");
+				log.error(ex.getMessage());
+				ex.printStackTrace();
+				return getTellSpeechletResponse("Problem when talking to kubernetes API.");
+			}
+			return getTellSpeechletResponse(podName + " has been deployed from " + nameSpace);
+		}
+
+
+	private SpeechletResponse createDeployment(Client client, String host, String podName, String nameSpace, Deployment dep) {
+		String depPath =
+				String.format("/apis/apps/v1beta1/namespaces/%s/deployments", nameSpace);
+
+		WebResource deployment = client.resource("https://" + host + depPath);
+
+		Gson gson = new Gson();
+
+		String deploymentPost = gson.toJson(dep);
+		System.out.println(deploymentPost);
+
+		ClientResponse response = deployment.type(MediaType.APPLICATION_JSON).post(ClientResponse.class, deploymentPost);
+
+		if (response.getStatus() != 201) {
+			//TODO need code if it already exists
+			if(response.getStatus() == 404) {
+				return getTellSpeechletResponse("Cannot delete " + podName + " deployment as it doesn't exist.");
+			}
+			log.error("Failed in call to delete deployment : HTTP error code : "
+					+ response.getStatus());
+
+			return getTellSpeechletResponse("Problem when talking to kubernetes API.");
+		}
+
+		return getTellSpeechletResponse(podName + " has been deployed to " + nameSpace);
+
+	}
+
+	private SpeechletResponse createService(Client client, String host, String podName, String nameSpace) {
+		Service service;
+		NginxServiceModel nginxServiceModel = new NginxServiceModel(podName, nameSpace);
+
+		service = nginxServiceModel.getService();
+
+		String servicePath =
+				String.format("/api/v1/namespaces/%s/services", nameSpace);
+
+		WebResource deployment = client.resource("https://" + host + servicePath);
+
+		Gson gson = new Gson();
+
+		String servicePost = gson.toJson(service);
+		System.out.println(servicePost);
+
+		ClientResponse response = deployment.type(MediaType.APPLICATION_JSON).post(ClientResponse.class, servicePost);
+
+		if (response.getStatus() != 201) {
+			if(response.getStatus() == 404) {
+				return getTellSpeechletResponse("Cannot delete " + podName + " deployment as it doesn't exist.");
+			}
+			log.error("Failed in call to delete deployment : HTTP error code : "
+					+ response.getStatus());
+
+			return getTellSpeechletResponse("Problem when talking to kubernetes API.");
+		}
+
+		return getTellSpeechletResponse(podName + " has been deployed to " + nameSpace);
+
+	}
+
+    private SpeechletResponse deleteDeployment(Intent intent, Session session) {
     	String nameSpace = intent.getSlot(SLOT_NAME_SPACE).getValue();
     	
     	if(nameSpace == null) {
@@ -190,17 +317,19 @@ public class KubernetesControlSpeechlet implements Speechlet {
     	try {
     		
     		DeleteOptions deleteOptions = new DeleteOptions();
+					deleteOptions.setKind("DeleteOptions");
+					deleteOptions.setApiVersion("apps/v1beta1");
     	    deleteOptions.setGracePeriodSeconds(10L);
     	    deleteOptions.setOrphanDependents(false);
     	    
-    	    Gson gson = new Gson();
-    	    String deploymentDelete = gson.toJson(deleteOptions);
-
+				Gson gson = new Gson();
+				String deploymentDelete = gson.toJson(deleteOptions);
+				String deleteManipulated = deploymentDelete.replace("{}", "{},\"propagationPolicy\":\"Foreground\"");
     		
     		String depPath =
-    		          String.format("/apis/extensions/v1beta1/namespaces/%s/deployments/%s", nameSpace.toLowerCase(), podName.toLowerCase());
+    		          String.format("/apis/apps/v1beta1/namespaces/%s/deployments/%s", nameSpace.toLowerCase(), podName.toLowerCase());
     		      WebResource deployment = client.resource("https://" + HOST + depPath);
-    		      ClientResponse response = deployment.type(MediaType.APPLICATION_JSON).delete(ClientResponse.class, deploymentDelete);
+    		      ClientResponse response = deployment.type(MediaType.APPLICATION_JSON).delete(ClientResponse.class, deleteManipulated);
     		      if (response.getStatus() != 200) {
     		    	  if(response.getStatus() == 404) {
     		    		  return getTellSpeechletResponse("Cannot delete " + podName + " deployment as it doesn't exist.");
@@ -510,7 +639,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
     private SpeechletResponse getWelcomeResponse() {
         String speechText = "Welcome to Voice Ops, I can get the statuses of clusters, "
         		+ "scale clusters, "
-        		+ "make make deployements, "
+        		+ "make deployements, "
         		+ "delete deployments,  "
         		+ "and hopefully in the future take over the world!";
 
