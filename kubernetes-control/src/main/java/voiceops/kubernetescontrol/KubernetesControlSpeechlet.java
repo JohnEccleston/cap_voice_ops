@@ -39,10 +39,7 @@ import io.fabric8.kubernetes.api.model.extensions.Scale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
-import voiceops.kubernetescontrol.model.NginxModel;
-import voiceops.kubernetescontrol.model.NginxServiceModel;
-import voiceops.kubernetescontrol.model.PostgresModel;
-import voiceops.kubernetescontrol.model.ServeHostnameModel;
+import voiceops.kubernetescontrol.model.*;
 
 import javax.net.ssl.*;
 import javax.ws.rs.core.MediaType;
@@ -183,9 +180,9 @@ public class KubernetesControlSpeechlet implements Speechlet {
 				if (deployType.contains("ngin")) {
 					NginxModel nginxModel = new NginxModel(podName);
 					dep = nginxModel.getDeployment();
-					SpeechletResponse response = createDeployment(client, HOST, podName, nameSpace, dep);
-					if (!response.getOutputSpeech().toString().contains("has been deployed to")) {
-						return response;
+					CallResponse response = createDeployment(client, HOST, podName, nameSpace, dep);
+					if (!response.getSuccess()) {
+						return response.getSpeechletResponse();
 					}
 					return createService(client, HOST, podName, nameSpace);
 				} else if (deployType.equalsIgnoreCase("serve")) {
@@ -210,7 +207,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 		}
 
 
-	private SpeechletResponse createDeployment(Client client, String host, String podName, String nameSpace, Deployment dep) {
+	private CallResponse createDeployment(Client client, String host, String podName, String nameSpace, Deployment dep) {
 		String depPath =
 				String.format("/apis/apps/v1beta1/namespaces/%s/deployments", nameSpace);
 
@@ -225,17 +222,23 @@ public class KubernetesControlSpeechlet implements Speechlet {
 
 		if (response.getStatus() != 201) {
 			if(response.getStatus() == 409) {
-				return getTellSpeechletResponse("Cannot create " +
-							podName +
-							" deployment as a deployment with that name already exists.");
+				CallResponse callResponse = new CallResponse(getTellSpeechletResponse(
+						String.format("Cannot create %s deployment as a deployment with that name already exists.", podName)),
+						false);
+				return callResponse;
 			}
 			log.error("Failed in call to create deployment : HTTP error code : "
 					+ response.getStatus());
-
-			return getTellSpeechletResponse("Problem when talking to kubernetes API. Deployment has not been created");
+			CallResponse callResponse = new CallResponse(
+					getTellSpeechletResponse("Problem when talking to kubernetes API. Deployment has not been created"),
+					false);
+			return callResponse;
 		}
 
-		return getTellSpeechletResponse(podName + " has been deployed to " + nameSpace);
+		CallResponse callResponse = new CallResponse(
+				getTellSpeechletResponse(String.format("%s has been deployed to %s", podName, nameSpace)),
+				true);
+		return callResponse;
 
 	}
 
@@ -462,8 +465,6 @@ public class KubernetesControlSpeechlet implements Speechlet {
 		      if (depGetResponse.getStatus() != 200) {
 		    	  log.error("Failed in call to scale : HTTP error code : "
 			              + depGetResponse.getStatus());
-			        	
-			      
 		      }
 		      else {
 		    	  depScaleIn = gson.fromJson(depGetResponse.getEntity(String.class), Scale.class);
