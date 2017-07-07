@@ -417,7 +417,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 		catch(Exception ex) {
 			return getTellSpeechletResponse("Problem when talking to kubernetes API.");
 		}
-		return getTellSpeechletResponse(String.format( "%s has been scaled to %s", podName, scaleNumber);
+		return getTellSpeechletResponse(String.format( "%s has been scaled to %s", podName, scaleNumber));
 	}
 	
 	private Scale getdepScaleIn(String nameSpace, String podName) {
