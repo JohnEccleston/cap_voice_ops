@@ -150,7 +150,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 //		}
 
     private SpeechletResponse deployDeployment(Intent intent, Session session) {
-			String nameSpace = intent.getSlot(SLOT_NAME_SPACE).getName();
+			String nameSpace = intent.getSlot(SLOT_NAME_SPACE).getValue();
 			if (nameSpace == null) {
 				String speechText = "Sorry, I did not hear the name space. Please say again?" +
 						"For example, You can say - deploy image to nameSpace with podName";
@@ -158,7 +158,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 			}
 			log.info("nameSpace = " + nameSpace);
 
-			String podName = intent.getSlot(SLOT_POD_NAME).getName();
+			String podName = intent.getSlot(SLOT_POD_NAME).getValue();
 			if (podName == null) {
 				String speechText = "Sorry, I did not hear the pod name. Please say again?" +
 						"For example, You can say - deploy image to nameSpace with podName";
@@ -166,7 +166,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 			}
 			log.info("podName = " + podName);
 
-			String deployType = intent.getSlot(SLOT_DEPLOY_TYPE).getName();
+			String deployType = intent.getSlot(SLOT_DEPLOY_TYPE).getValue();
 			if (deployType == null) {
 				String speechText = "Sorry, I did not hear the image name. Please say again?" +
 						"For example, You can say - deploy image to nameSpace with podName";
@@ -176,6 +176,9 @@ public class KubernetesControlSpeechlet implements Speechlet {
 
 			try {
 				Deployment dep;
+				podName = podName.toLowerCase();
+				nameSpace = nameSpace.toLowerCase();
+				deployType = deployType.toLowerCase();
 
 				if (deployType.contains("ngin")) {
 					NginxModel nginxModel = new NginxModel(podName);
