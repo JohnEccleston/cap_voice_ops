@@ -132,8 +132,8 @@ public class KubernetesControlSpeechlet implements Speechlet {
 	   	log.info("nameSpace = " + nameSpace);
 	   	
 	   	if(deployment == null) {
-	  		 String speechText = "Sorry, I did not hear the pod name. Please say again?" +
-	  				 	"For example, You can say - Delete pod Name from name Space";
+	  		 String speechText = "Sorry, I did not hear the deploymnet. Please say again?" +
+	  				 	"For example, You can say - Create deployment, deployment name in name Space";
 	           return getAskSpeechletResponse(speechText, speechText);
 	   	}
 	   	log.info("podName = " + deployment);
@@ -293,8 +293,8 @@ public class KubernetesControlSpeechlet implements Speechlet {
 	      }
 	      else {
 	    	  String speechText = "Sorry, I did not hear if you wanted to scale up or down. Please say again?" +
-	  			 	"For example, You can say - Scale podName in nameSpace to 5, or, " +
-	  			     "You can say - Scale up/down podName in nameSpace";
+	  			 	"For example, You can say - Scale pod name in name space to 5, or, " +
+	  			     "You can say - Scale up/down pod name in name space";
 	          return getAskSpeechletResponse(speechText, speechText);
 	      }
 		return scaleByNumber(nameSpace, podName, depScaleIn.getSpec().getReplicas(), depScaleIn);
