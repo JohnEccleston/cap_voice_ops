@@ -66,8 +66,6 @@ public class KubernetesControlSpeechlet implements Speechlet {
     private static final String SLOT_SCALE = "scale";
     private static final String SLOT_SCALE_NUMBER = "scaleNumber";
     private static final String SLOT_POD_NAME = "podName";
-    private static final String SLOT_DEPLOYMENT_NAME = "deployment";
-    private static final String SLOT_DEPLOYMENT_TYPE = "deploymentType";
     private static final String SLOT_DEPLOY_TYPE = "deployType";
     private static final String HOST = "api.k8sdemo.capademy.com";
     
