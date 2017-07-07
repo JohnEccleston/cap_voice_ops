@@ -126,32 +126,11 @@ public class KubernetesControlSpeechlet implements Speechlet {
         }
     }
 
-//    private SpeechletResponse createDeployment(Intent intent, Session session) {
-//		String nameSpace  = intent.getSlot(SLOT_NAME_SPACE).getValue();;
-//		String deployment = intent.getSlot(SLOT_DEPLOYMENT_NAME).getValue();
-//		String deploymentType = intent.getSlot(SLOT_DEPLOYMENT_TYPE).getValue();
-//		
-//		if(nameSpace == null) {
-//   		 String speechText = "Sorry, I did not hear the name space name. Please say again?" +
-//   				 	"For example, You can say - Create deployment, deployment name in name Space";
-//            return getAskSpeechletResponse(speechText, speechText);
-//	   	}
-//	   	log.info("nameSpace = " + nameSpace);
-//	   	
-//	   	if(deployment == null) {
-//	  		 String speechText = "Sorry, I did not hear the deploymnet. Please say again?" +
-//	  				 	"For example, You can say - Create deployment, deployment name in name Space";
-//	           return getAskSpeechletResponse(speechText, speechText);
-//	   	}
-//	   	log.info("podName = " + deployment);
-//			return null;
-//		}
-
     private SpeechletResponse deployDeployment(Intent intent, Session session) {
 			String nameSpace = intent.getSlot(SLOT_NAME_SPACE).getValue();
 			if (nameSpace == null) {
 				String speechText = "Sorry, I did not hear the name space. Please say again?" +
-						"For example, You can say - deploy image to nameSpace with podName";
+						"For example, You can say - deploy image to name Space with pod Name";
 				return getAskSpeechletResponse(speechText, speechText);
 			}
 			log.info("nameSpace = " + nameSpace);
@@ -159,7 +138,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 			String podName = intent.getSlot(SLOT_POD_NAME).getValue();
 			if (podName == null) {
 				String speechText = "Sorry, I did not hear the pod name. Please say again?" +
-						"For example, You can say - deploy image to nameSpace with podName";
+						"For example, You can say - deploy image to name Space with pod Name";
 				return getAskSpeechletResponse(speechText, speechText);
 			}
 			log.info("podName = " + podName);
