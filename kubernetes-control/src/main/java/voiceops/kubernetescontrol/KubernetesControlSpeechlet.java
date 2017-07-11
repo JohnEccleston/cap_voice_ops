@@ -175,7 +175,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 				session.setAttribute("namespace", nameSpace);
 				session.setAttribute("podName", podName);
 	            String speechText = "OK. What deployment type would you like? " +
-			                        "You can have engine ex, serve or postgress";
+			                        "You can have engine ex, serve, or postgress";
 	            return getAskSpeechletResponse(speechText, speechText);
 	        }
 //			if (deployType == null) {
@@ -223,7 +223,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 
 	private CallResponse createDeployment(Client client, String host, String podName, String nameSpace, Deployment dep) {
 		String depPath =
-				String.format("/apis/apps/v1beta1/namespaces/%s/deployments", nameSpace);
+				String.format("/apis/apps/v1beta1/namespaces/%s/deployments", nameSpace.toLowerCase());
 
 		WebResource deployment = client.resource("https://" + host + depPath);
 
@@ -264,7 +264,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 		service = nginxServiceModel.getService();
 
 		String servicePath =
-				String.format("/api/v1/namespaces/%s/services", nameSpace);
+				String.format("/api/v1/namespaces/%s/services", nameSpace.toLowerCase());
 
 		WebResource deployment = client.resource("https://" + host + servicePath);
 
@@ -345,10 +345,11 @@ public class KubernetesControlSpeechlet implements Speechlet {
 				}
 
 				String servicePath =
-          String.format("/api/v1/namespaces/%s/services/%s", nameSpace, podName);
+          String.format("/api/v1/namespaces/%s/services/%s", nameSpace.toLowerCase(), podName.toLowerCase());
 
       	WebResource service = client.resource("https://" + host + servicePath);
-      	ClientResponse serviceResponse = service.type(MediaType.APPLICATION_JSON).delete(ClientResponse.class);
+      	ClientResponse serviceResponse = service.header("Authorization", token)
+      			.type(MediaType.APPLICATION_JSON).delete(ClientResponse.class);
       	if (serviceResponse.getStatus() != 200 && serviceResponse.getStatus() != 404) {
 					log.error("Failed in call to delete service : HTTP error code : "
 							+ serviceResponse.getStatus());
@@ -538,7 +539,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
             return getAskSpeechletResponse(speechText, speechText);
         }
         
-        String path = "/api/v1/namespaces/" + nameSpace + "/pods";
+        String path = "/api/v1/namespaces/" + nameSpace.toLowerCase() + "/pods";
     	
     	try {
 	    	WebResource webResource = client
