@@ -278,7 +278,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 
 		if (response.getStatus() != 201) {
 			if(response.getStatus() == 409) {
-				return getTellSpeechletResponse("Cannot create service " + podName + " as it already exists. Deployment has been created.");
+				return getTellSpeechletResponse("Cannot create service " + podName + " as it already exists. Deployment hasn't been created.");
 			}
 			log.error("Failed in call to create deployment : HTTP error code : "
 					+ response.getStatus());
@@ -351,7 +351,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
       	ClientResponse serviceResponse = service.type(MediaType.APPLICATION_JSON).delete(ClientResponse.class);
       	if (serviceResponse.getStatus() != 200 && serviceResponse.getStatus() != 404) {
 					log.error("Failed in call to delete service : HTTP error code : "
-							+ response.getStatus());
+							+ serviceResponse.getStatus());
 
 					return getTellSpeechletResponse("Problem when talking to kubernetes API. Service has not been deleted");
 				}
