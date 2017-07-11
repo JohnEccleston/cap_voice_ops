@@ -64,7 +64,11 @@ public class KubernetesControlSpeechlet implements Speechlet {
     private static final String SLOT_SCALE_NUMBER = "scaleNumber";
     private static final String SLOT_POD_NAME = "podName";
     private static final String SLOT_DEPLOY_TYPE = "deployType";
-    private static final String HOST = "api.k8sdemo.capademy.com";
+    private static final String HOST_AWS = "api.k8sdemo.capademy.com";
+    private static final String HOST_AZURE = "k8democluster-techchallengerg-24ed28.eastus.cloudapp.azure.com";
+    private static String host;
+    private static String token;
+    private static final String TOKEN_AZURE = "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImRlZmF1bHQtdG9rZW4tcDcyOG4iLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiZGVmYXVsdCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjRlNjI2YWFiLTYyZTktMTFlNy04YmNkLTAwMGQzYTE5ZWE1NyIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OmRlZmF1bHQifQ.bjdoyF94_YsaBFD0aqQc8YFanRd17YuxeIuoeFD0wPxgYr9UrPW-QYxcaTRoPESYt1ab9W0n9aoKr807wPtO4nSsjn8MeJW-21jcfeO2woTbDgSsDi-54QeRXjo0KikXXxTvFGgWY5CjcJ0E8BvYtWXsdQoo_NOb1mL1cNtj8u1GPJ4J4kYYMaIrJHHuReTpA1TfmGf7r-3jdWcZGSJ8TEVLTi6G9t6NZcuGrBA0OoVVuDn7glYHv_3juub1xL1SXvwQgvfYW6MbGoETrcP7RCetR2vo_nUiYYFJCd1d8lbnN5iUz62VSok9q0t7-Fvt1N_BLky4FT9LGmvGdpqILg";
     
    //@Override
     public void onSessionStarted(final SessionStartedRequest request, final Session session)
@@ -88,28 +92,47 @@ public class KubernetesControlSpeechlet implements Speechlet {
         log.info("onIntent requestId={}, sessionId={}", request.getRequestId(),
                 session.getSessionId());
         
+        log.info("token when first entering intent = " + token);
+        
         //probably remove this, but session doesn't seem to close when testing
         initialize();
 
         Intent intent = request.getIntent();
-        
         String intentName = (intent != null) ? intent.getName() : null;
+        
+        host = HOST_AWS;
+        token = null;
+        
+        String cloudProvider = (String) session.getAttribute("provider");
+        
+        if(cloudProvider == null) {
+        	cloudProvider = intent.getSlot("cloudProvider").getValue();
+        }
+        
+        log.info("Cloud Provider = " + cloudProvider);
+        if(cloudProvider != null && cloudProvider.equalsIgnoreCase("azure")) {
+        	log.info("Connecting to AZURE API's");
+        	session.setAttribute("provider", "azure");
+        	host = HOST_AZURE;
+        	token = TOKEN_AZURE;
+        }
+        else {
+        	session.setAttribute("provider", "aws");
+        }
+        
+        log.info("host = " + host);
+        log.info("token = " + token);
 
         if ("CreateCluster".equals(intentName)) {
-        	//callKubernetesApi();
             return getCreateClusterResponse();
         }else if("GetPodStatus".equals(intentName)) {
         	return getPodStatusResponse(request.getIntent(), session);
-        }//else if("ListAllPodStatuses".equals(intentName)) {
-//        	return getlistAllPodStatusResponse(request.getIntent(), session);
-          else if("Confirm".equals(intentName)) {
+        }else if("Confirm".equals(intentName)) {
         	return getConfirmResponse(request.getIntent(), session);
         }else if("ScalePod".equals(intentName)) {
         	return scalePod(request.getIntent(), session);
         }else if("DeleteDeployment".equals(intentName)) {
         	return deleteDeployment(request.getIntent(), session);
-//        }else if("CreateDeployment".equals(intentName)) {
-//        	return createDeployment(request.getIntent(), session);
 		} else if("DeployDeployment".equals(intentName)) {
         	return deployDeployment(request.getIntent(), session);
         }else if ("AMAZON.HelpIntent".equals(intentName)) {
@@ -171,19 +194,19 @@ public class KubernetesControlSpeechlet implements Speechlet {
 				if (deployType.contains("ngin")) {
 					NginxModel nginxModel = new NginxModel(podName);
 					dep = nginxModel.getDeployment();
-					CallResponse response = createDeployment(client, HOST, podName, nameSpace, dep);
+					CallResponse response = createDeployment(client, host, podName, nameSpace, dep);
 					if (!response.getSuccess()) {
 						return response.getSpeechletResponse();
 					}
-					return createService(client, HOST, podName, nameSpace);
+					return createService(client, host, podName, nameSpace);
 				} else if (deployType.equalsIgnoreCase("serve")) {
 					ServeHostnameModel serveHostnameModel = new ServeHostnameModel(podName);
 					dep = serveHostnameModel.getDeployment();
-					createDeployment(client, HOST, podName, nameSpace, dep);
+					createDeployment(client, host, podName, nameSpace, dep);
 				} else if (deployType.equalsIgnoreCase("postgres")) {
 					PostgresModel postgresModel = new PostgresModel(podName);
 					dep = postgresModel.getDeployment();
-					createDeployment(client, HOST, podName, nameSpace, dep);
+					createDeployment(client, host, podName, nameSpace, dep);
 				} else {
 					return getTellSpeechletResponse(String.format("No images found for %s, please check and try again", deployType));
 				}
@@ -209,7 +232,8 @@ public class KubernetesControlSpeechlet implements Speechlet {
 		String deploymentPost = gson.toJson(dep);
 		System.out.println(deploymentPost);
 
-		ClientResponse response = deployment.type(MediaType.APPLICATION_JSON).post(ClientResponse.class, deploymentPost);
+		ClientResponse response = deployment.header("Authorization", token)
+				.type(MediaType.APPLICATION_JSON).post(ClientResponse.class, deploymentPost);
 
 		if (response.getStatus() != 201) {
 			if(response.getStatus() == 409) {
@@ -249,7 +273,8 @@ public class KubernetesControlSpeechlet implements Speechlet {
 		String servicePost = gson.toJson(service);
 		System.out.println(servicePost);
 
-		ClientResponse response = deployment.type(MediaType.APPLICATION_JSON).post(ClientResponse.class, servicePost);
+		ClientResponse response = deployment.header("Authorization", token)
+				.type(MediaType.APPLICATION_JSON).post(ClientResponse.class, servicePost);
 
 		if (response.getStatus() != 201) {
 			if(response.getStatus() == 409) {
@@ -295,19 +320,20 @@ public class KubernetesControlSpeechlet implements Speechlet {
     	try {
     		
     		DeleteOptions deleteOptions = new DeleteOptions();
-					deleteOptions.setKind("DeleteOptions");
-					deleteOptions.setApiVersion("apps/v1beta1");
+			deleteOptions.setKind("DeleteOptions");
+			deleteOptions.setApiVersion("apps/v1beta1");
     	    deleteOptions.setGracePeriodSeconds(10L);
     	    
-				Gson gson = new Gson();
-				String deploymentDelete = gson.toJson(deleteOptions);
-				String deleteManipulated = deploymentDelete.replace("{}", "{},\"propagationPolicy\":\"Foreground\"");
+			Gson gson = new Gson();
+			String deploymentDelete = gson.toJson(deleteOptions);
+			String deleteManipulated = deploymentDelete.replace("{}", "{},\"propagationPolicy\":\"Foreground\"");
     		
     		String depPath =
     		          String.format("/apis/apps/v1beta1/namespaces/%s/deployments/%s", nameSpace.toLowerCase(), podName.toLowerCase());
 
-				WebResource deployment = client.resource("https://" + HOST + depPath);
-				ClientResponse response = deployment.type(MediaType.APPLICATION_JSON).delete(ClientResponse.class, deleteManipulated);
+				WebResource deployment = client.resource("https://" + host + depPath);
+				ClientResponse response = deployment.header("Authorization", token)
+						.type(MediaType.APPLICATION_JSON).delete(ClientResponse.class, deleteManipulated);
 				if (response.getStatus() != 200) {
 					if(response.getStatus() == 404) {
 						return getTellSpeechletResponse("Cannot delete " + podName + " deployment as it doesn't exist.");
@@ -321,7 +347,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 				String servicePath =
           String.format("/api/v1/namespaces/%s/services/%s", nameSpace, podName);
 
-      	WebResource service = client.resource("https://" + HOST + servicePath);
+      	WebResource service = client.resource("https://" + host + servicePath);
       	ClientResponse serviceResponse = service.type(MediaType.APPLICATION_JSON).delete(ClientResponse.class);
       	if (serviceResponse.getStatus() != 200 && serviceResponse.getStatus() != 404) {
 					log.error("Failed in call to delete service : HTTP error code : "
@@ -431,9 +457,10 @@ public class KubernetesControlSpeechlet implements Speechlet {
 				String depPath =
 			    String.format("/apis/extensions/v1beta1/namespaces/%s/deployments/%s/scale", nameSpace.toLowerCase(), podName.toLowerCase());
 				WebResource hpaPut = client
-				          .resource("https://" + HOST + depPath);
+				          .resource("https://" + host + depPath);
 				String depScaleOut = gson.toJson(depScaleIn);
-				hpaPut.type(MediaType.APPLICATION_JSON).put(depScaleOut);
+				hpaPut.header("Authorization", token)
+				.type(MediaType.APPLICATION_JSON).put(depScaleOut);
 		}
 		catch(Exception ex) {
 			return getTellSpeechletResponse("Problem when talking to kubernetes API.");
@@ -451,8 +478,9 @@ public class KubernetesControlSpeechlet implements Speechlet {
 		          String.format("/apis/extensions/v1beta1/namespaces/%s/deployments/%s/scale", nameSpace.toLowerCase(), podName.toLowerCase());
 		      log.info("depPath = " + depPath);
 		      WebResource hpaGet = client
-		          .resource("https://" + HOST + depPath);
-		      ClientResponse depGetResponse = hpaGet.accept(MediaType.APPLICATION_JSON).get(ClientResponse.class);
+		          .resource("https://" + host + depPath);
+		      ClientResponse depGetResponse = hpaGet.header("Authorization", token)
+		    		  .accept(MediaType.APPLICATION_JSON).get(ClientResponse.class);
 		      if (depGetResponse.getStatus() != 200) {
 		    	  log.error("Failed in call to scale : HTTP error code : "
 			              + depGetResponse.getStatus());
@@ -514,9 +542,10 @@ public class KubernetesControlSpeechlet implements Speechlet {
     	
     	try {
 	    	WebResource webResource = client
-	                .resource("https://" + HOST + path);
+	                .resource("https://" + host + path);
 	    	
-	    	 ClientResponse r1 = webResource.accept(MediaType.APPLICATION_JSON)
+	    	 ClientResponse r1 = webResource.header("Authorization", token)
+	    			 .accept(MediaType.APPLICATION_JSON)
 	    	            .get(ClientResponse.class);
 	    	        log.info("Called the Client");
 	
