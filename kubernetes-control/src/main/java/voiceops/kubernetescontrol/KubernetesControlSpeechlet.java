@@ -64,12 +64,14 @@ public class KubernetesControlSpeechlet implements Speechlet {
     private static final String SLOT_SCALE_NUMBER = "scaleNumber";
     private static final String SLOT_POD_NAME = "podName";
     private static final String SLOT_DEPLOY_TYPE = "deployType";
-    private static final String HOST_AWS = "api.k8sdemo.capademy.com";
-    private static final String HOST_AZURE = "k8democluster-techchallengerg-24ed28.eastus.cloudapp.azure.com";
+    private String host_aws;
+    private String host_azure;
+//    private static final String HOST_AWS = "api.k8sdemo.capademy.com";
+//    private static final String HOST_AZURE = "k8democluster-techchallengerg-24ed28.eastus.cloudapp.azure.com";
     private static String host;
     private static String token;
-    private static final String TOKEN_AZURE = "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImRlZmF1bHQtdG9rZW4tcDcyOG4iLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiZGVmYXVsdCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjRlNjI2YWFiLTYyZTktMTFlNy04YmNkLTAwMGQzYTE5ZWE1NyIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OmRlZmF1bHQifQ.bjdoyF94_YsaBFD0aqQc8YFanRd17YuxeIuoeFD0wPxgYr9UrPW-QYxcaTRoPESYt1ab9W0n9aoKr807wPtO4nSsjn8MeJW-21jcfeO2woTbDgSsDi-54QeRXjo0KikXXxTvFGgWY5CjcJ0E8BvYtWXsdQoo_NOb1mL1cNtj8u1GPJ4J4kYYMaIrJHHuReTpA1TfmGf7r-3jdWcZGSJ8TEVLTi6G9t6NZcuGrBA0OoVVuDn7glYHv_3juub1xL1SXvwQgvfYW6MbGoETrcP7RCetR2vo_nUiYYFJCd1d8lbnN5iUz62VSok9q0t7-Fvt1N_BLky4FT9LGmvGdpqILg";
-    
+    private String token_azure;
+
    //@Override
     public void onSessionStarted(final SessionStartedRequest request, final Session session)
             throws SpeechletException {
@@ -95,12 +97,16 @@ public class KubernetesControlSpeechlet implements Speechlet {
         log.info("token when first entering intent = " + token);
         
         //probably remove this, but session doesn't seem to close when testing
+
+				log.info("entering initialize");
         initialize();
+
+        log.info("exited initialize");
 
         Intent intent = request.getIntent();
         String intentName = (intent != null) ? intent.getName() : null;
         
-        host = HOST_AWS;
+        host = host_aws;
         token = null;
         
         String cloudProvider = (String) session.getAttribute("provider");
@@ -113,8 +119,8 @@ public class KubernetesControlSpeechlet implements Speechlet {
         if(cloudProvider != null && cloudProvider.equalsIgnoreCase("azure")) {
         	log.info("Connecting to AZURE API's");
         	session.setAttribute("provider", "azure");
-        	host = HOST_AZURE;
-        	token = TOKEN_AZURE;
+        	host = host_azure;
+        	token = token_azure;
         }
         else {
         	session.setAttribute("provider", "aws");
@@ -830,41 +836,46 @@ public class KubernetesControlSpeechlet implements Speechlet {
     private void initialize() {
     	 try{
 
-             AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
-                 .withRegion(Regions.EU_WEST_1)
-                 .build();
-             S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "access/creds.yml"));
+					log.info("Entered initialize");
+					AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
+						 .withRegion(Regions.EU_WEST_1)
+						 .build();
+					S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "access/creds.yml"));
 
-             Yaml yaml = new Yaml();
-             @SuppressWarnings("unchecked")
-             HashMap<Object, Object> yamlParsers = (HashMap<Object, Object>) yaml.load(object.getObjectContent());
-             final String user = yamlParsers.get("user").toString();
-             final String password = yamlParsers.get("password").toString();
-         
-             client.addFilter(new HTTPBasicAuthFilter(user, password));
-             
-             /*TrustManager[]*/ trustAllCerts = new TrustManager[] {new X509TrustManager() {
-                 public java.security.cert.X509Certificate[] getAcceptedIssuers() {
-                   return null;
-                 }
-                 public void checkClientTrusted(X509Certificate[] certs, String authType) {
-                 }
-                 public void checkServerTrusted(X509Certificate[] certs, String authType) {
-                 }
-               }
-               };
-             
-             // Install the all-trusting trust manager
-             /*SSLContext*/ sc = SSLContext.getInstance("SSL");
-             sc.init(null, trustAllCerts, new java.security.SecureRandom());
-             HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+					Yaml yaml = new Yaml();
 
-             // Create all-trusting host name verifier
-             /*HostnameVerifier*/ allHostsValid = new HostnameVerifier() {
-               public boolean verify(String hostname, SSLSession session) {
-                 return true;
-               }
-             };
+					@SuppressWarnings("unchecked")
+					HashMap<Object, Object> yamlParsers = (HashMap<Object, Object>) yaml.load(object.getObjectContent());
+					final String user = yamlParsers.get("awsuser").toString();
+					final String password = yamlParsers.get("awspassword").toString();
+					final String azuretoken = yamlParsers.get("azuretoken").toString();
+					token_azure = "Bearer " + azuretoken;
+					host_aws = yamlParsers.get("awshost").toString();
+					host_azure = yamlParsers.get("azurehost").toString();
+
+					client.addFilter(new HTTPBasicAuthFilter(user, password));
+
+					/*TrustManager[]*/ trustAllCerts = new TrustManager[] {
+							new X509TrustManager() {
+								public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+								 return null;
+								}
+								public void checkClientTrusted(X509Certificate[] certs, String authType) {}
+								public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+							}
+					};
+             
+					// Install the all-trusting trust manager
+					/*SSLContext*/ sc = SSLContext.getInstance("SSL");
+					sc.init(null, trustAllCerts, new java.security.SecureRandom());
+					HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+
+					// Create all-trusting host name verifier
+					/*HostnameVerifier*/ allHostsValid = new HostnameVerifier() {
+ 						public boolean verify(String hostname, SSLSession session) {
+						 return true;
+					 }
+					};
          }
          catch(Exception ex) {
          	log.error("Failure getting creds! " + ex.getMessage());
