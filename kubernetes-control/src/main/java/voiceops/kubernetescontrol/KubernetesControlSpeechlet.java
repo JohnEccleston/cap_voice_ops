@@ -125,8 +125,8 @@ public class KubernetesControlSpeechlet implements Speechlet {
 
         if ("CreateCluster".equals(intentName)) {
             return getCreateClusterResponse();
-        }else if("GetPodStatus".equals(intentName)) {
-        	return getPodStatusResponse(request.getIntent(), session);
+        }else if("GetDeploymentStatus".equals(intentName)) {
+        	return getDeploymentStatusResponse(request.getIntent(), session);
         }else if("Confirm".equals(intentName)) {
         	return getConfirmResponse(request.getIntent(), session);
         }else if("ScalePod".equals(intentName)) {
@@ -178,11 +178,6 @@ public class KubernetesControlSpeechlet implements Speechlet {
 			                        "You can have engine ex, serve, or postgress";
 	            return getAskSpeechletResponse(speechText, speechText);
 	        }
-//			if (deployType == null) {
-//				String speechText = "Sorry, I did not hear the image name. Please say again?" +
-//						"For example, You can say - deploy image to nameSpace with podName";
-//				return getAskSpeechletResponse(speechText, speechText);
-//			}
 			log.info("deployType = " + deployType);
 
 			try {
@@ -503,11 +498,11 @@ public class KubernetesControlSpeechlet implements Speechlet {
 		
 		Map<String, Object> map = session.getAttributes();
 		
-		if(map.containsKey("pods")) {
-			 Object obj = session.getAttribute("pods");
+		if(map.containsKey("deployments")) {
+			 Object obj = session.getAttribute("deployments");
 	    	 ObjectMapper mapper = new ObjectMapper();
-	    	 List<Pod> pods = mapper.convertValue(obj, new TypeReference<List<Pod>>() { });
-	    	 return getPodStatusSpeech(pods);
+	    	 List<DeploymentAlexa> deployments = mapper.convertValue(obj, new TypeReference<List<DeploymentAlexa>>() { });
+	    	 return getDeploymentStatusSpeech(deployments);
 		}
 		else if(map.containsKey("delete")) {
 			String deleteStr = (String)session.getAttribute("delete");
@@ -517,18 +512,9 @@ public class KubernetesControlSpeechlet implements Speechlet {
 		return getTellSpeechletResponse("Sorry, I'm not sure what action you are trying to confirm.");
 	}
 
-//	private SpeechletResponse getlistAllPodStatusResponse(Intent intent, Session session) {
-//    	 Object obj = session.getAttribute("pods"); 	 
-//    	 ObjectMapper mapper = new ObjectMapper();
-//    	 List<Pod> pods = mapper.convertValue(obj, new TypeReference<List<Pod>>() { });
-//    	 return getPodStatusSpeech(pods);
-//	}
-
-	private SpeechletResponse getPodStatusResponse(Intent intent, Session session) {
+	private SpeechletResponse getDeploymentStatusResponse(Intent intent, Session session) {
     	
-    	//String host = "api.k8sdemo.capademy.com";
-    	//String path = "/api/v1/namespaces/kube-system/pods";
-    	List<Pod> pods = new ArrayList<Pod>();
+    	List<DeploymentAlexa> deployments = new ArrayList<DeploymentAlexa>();
     	
     	String nameSpace = intent.getSlot(SLOT_NAME_SPACE).getValue();
     	
@@ -539,7 +525,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
             return getAskSpeechletResponse(speechText, speechText);
         }
         
-        String path = "/api/v1/namespaces/" + nameSpace.toLowerCase() + "/pods";
+        String path = "/apis/apps/v1beta1/namespaces/" + nameSpace.toLowerCase() + "/deployments";
     	
     	try {
 	    	WebResource webResource = client
@@ -563,10 +549,11 @@ public class KubernetesControlSpeechlet implements Speechlet {
 	        JsonArray items = jsonObject.get("items").getAsJsonArray();
 	        	        
 	        for (JsonElement item : items) {
-	        	Pod pod = new Pod();
-	      	  	pod.setName(item.getAsJsonObject().get("metadata").getAsJsonObject().get("name").getAsString());
-	      	  	pod.setStatus(item.getAsJsonObject().get("status").getAsJsonObject().get("phase").getAsString());
-	      	    pods.add(pod);
+	        	DeploymentAlexa deployment = new DeploymentAlexa();
+	        	deployment.setName(item.getAsJsonObject().get("metadata").getAsJsonObject().get("name").getAsString());
+	        	deployment.setReplicas(item.getAsJsonObject().get("spec").getAsJsonObject().get("replicas").getAsInt());
+	        	deployment.setImage(item.getAsJsonObject().get("spec").getAsJsonObject().get("template").getAsJsonObject().get("spec").getAsJsonObject().get("containers").getAsJsonArray().get(0).getAsJsonObject().get("image").getAsString());
+	      	    deployments.add(deployment);
 	      	}
     	}
     	catch(Exception ex) {
@@ -578,22 +565,22 @@ public class KubernetesControlSpeechlet implements Speechlet {
     		return getTellSpeechletResponse("Problem when talking to kubernetes API.");
     	}
 		
-    	if(pods.isEmpty()) {
-    		return getTellSpeechletResponse("No pods found for that name space.");
+    	if(deployments.isEmpty()) {
+    		return getTellSpeechletResponse("No pods deployments for that name space.");
     	}
     	
-    	if(pods.size() < 6) {
-    		return getPodStatusSpeech(pods);
+    	if(deployments.size() < 6) {
+    		return getDeploymentStatusSpeech(deployments);
     	}
-    	return getMoreThan5Speech(pods, session);
+    	return getMoreThan5Speech(deployments, session);
 	}
     
-    private SpeechletResponse getMoreThan5Speech(List<Pod> pods, Session session) {
+    private SpeechletResponse getMoreThan5Speech(List<DeploymentAlexa> deployments, Session session) {
    	
-		StringBuilder sb = new StringBuilder("This enviroment has " + pods.size() + " pods, would" +
-				" you like me to list them all and their statuses. ");
+		StringBuilder sb = new StringBuilder("This enviroment has " + deployments.size() + " deployments, would" +
+				" you like me to list them all, their statuses, and pod sizes? ");
 		
-		session.setAttribute("pods", pods);
+		session.setAttribute("deployments", deployments);
 		return getAskSpeechletResponse(sb.toString(), sb.toString());
 	}
 
@@ -629,15 +616,16 @@ public class KubernetesControlSpeechlet implements Speechlet {
         return SpeechletResponse.newAskResponse(speech, reprompt, card);
     }
 
-	private SpeechletResponse getPodStatusSpeech(List<Pod> pods) {
+	private SpeechletResponse getDeploymentStatusSpeech(List<DeploymentAlexa> deployments) {
 		
-		StringBuilder sb = new StringBuilder("I will now list the pods for this environment " +
-				"and their statuses. ");
+		StringBuilder sb = new StringBuilder("I will now list the deployments for this environment" +
+				", their statuses, and their pod sizes. ");
 		
-		for(Pod pod : pods) {
-			sb.append(pod.getName() + ", " + pod.getStatus() + ". ");
+		for(DeploymentAlexa deployment : deployments) {
+			sb.append(deployment.getName() + ", is an  " + deployment.getImage() + ", deployment, it has " + 
+					deployment.getReplicas() + " pods, and is " + deployment.getStatus() + ". ");
 		}
-		sb.append(" Thanks");
+		sb.append("Thanks");
 		
 		return getTellSpeechletResponse(sb.toString());
 	}
@@ -691,8 +679,6 @@ public class KubernetesControlSpeechlet implements Speechlet {
         PlainTextOutputSpeech speech = new PlainTextOutputSpeech();
         speech.setText(speechText);
         
-       
-
         return SpeechletResponse.newTellResponse(speech, card);
     }
 
