@@ -155,11 +155,29 @@ resource "aws_security_group_rule" "all-node-to-node" {
   protocol                 = "-1"
 }
 
-resource "aws_security_group_rule" "https-external-to-master-0-0-0-0--0" {
+resource "aws_security_group_rule" "https-external-to-master-443" {
   type              = "ingress"
   security_group_id = "${aws_security_group.voiceOpsMastersSg.id}"
   from_port         = 443
   to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "https-external-to-master-22" {
+  type              = "ingress"
+  security_group_id = "${aws_security_group.voiceOpsMastersSg.id}"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "https-external-to-nodes-22" {
+  type              = "ingress"
+  security_group_id = "${aws_security_group.voiceOpsNodesSg.id}"
+  from_port         = 22
+  to_port           = 22
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
 }
