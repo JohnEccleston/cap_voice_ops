@@ -32,7 +32,6 @@ import com.sun.jersey.api.client.WebResource;
 import com.sun.jersey.api.client.filter.HTTPBasicAuthFilter;
 
 import io.fabric8.kubernetes.api.model.DeleteOptions;
-import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.extensions.Deployment;
 import io.fabric8.kubernetes.api.model.extensions.Scale;
 
@@ -40,6 +39,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 import voiceops.kubernetescontrol.model.*;
+import voiceops.kubernetescontrol.process.deployment.DeploymentProcess;
+import voiceops.kubernetescontrol.process.routing.RoutingProcess;
+import voiceops.kubernetescontrol.process.service.ServiceProcess;
 
 import javax.net.ssl.*;
 import javax.ws.rs.core.MediaType;
@@ -71,6 +73,11 @@ public class KubernetesControlSpeechlet implements Speechlet {
     private static String host;
     private static String token;
     private String token_azure;
+
+    //TODO sort these out
+		private ServiceProcess serviceProcess = new ServiceProcess();
+		private DeploymentProcess deploymentProcess = new DeploymentProcess();
+		private RoutingProcess routingProcess = new RoutingProcess();
 
    //@Override
     public void onSessionStarted(final SessionStartedRequest request, final Session session)
@@ -176,19 +183,15 @@ public class KubernetesControlSpeechlet implements Speechlet {
 			log.info("podName = " + podName);
 
 			String deployType = intent.getSlot(SLOT_DEPLOY_TYPE).getValue();
-			
+
 			if (deployType == null) {
 				session.setAttribute("namespace", nameSpace);
 				session.setAttribute("podName", podName);
-	            String speechText = "OK. What deployment type would you like? " +
-			                        "You can have engine ex, serve, or postgress";
-	            return getAskSpeechletResponse(speechText, speechText);
-	        }
-//			if (deployType == null) {
-//				String speechText = "Sorry, I did not hear the image name. Please say again?" +
-//						"For example, You can say - deploy image to nameSpace with podName";
-//				return getAskSpeechletResponse(speechText, speechText);
-//			}
+				String speechText = "OK. What deployment type would you like? " +
+												"You can have engine ex, serve, or postgress";
+				return getAskSpeechletResponse(speechText, speechText);
+			}
+
 			log.info("deployType = " + deployType);
 
 			try {
@@ -200,19 +203,27 @@ public class KubernetesControlSpeechlet implements Speechlet {
 				if (deployType.contains("ngin")) {
 					NginxModel nginxModel = new NginxModel(podName);
 					dep = nginxModel.getDeployment();
-					CallResponse response = createDeployment(client, host, podName, nameSpace, dep);
+					CallResponse response =  deploymentProcess.createDeployment(client, host, token, podName, nameSpace, dep);
 					if (!response.getSuccess()) {
 						return response.getSpeechletResponse();
 					}
-					return createService(client, host, podName, nameSpace);
+					return serviceProcess.createService(client, host, token, podName, nameSpace);
+				} else 	if (deployType.contains("gemini")) {
+					CapgeminiModel capgeminiModel = new CapgeminiModel(podName);
+					dep = capgeminiModel.getDeployment();
+					CallResponse response = deploymentProcess.createDeployment(client, host, token, podName, nameSpace, dep);
+					if (!response.getSuccess()) {
+						return response.getSpeechletResponse();
+					}
+					return serviceProcess.createService(client, host, token,  podName, nameSpace);
 				} else if (deployType.equalsIgnoreCase("serve")) {
 					ServeHostnameModel serveHostnameModel = new ServeHostnameModel(podName);
 					dep = serveHostnameModel.getDeployment();
-					createDeployment(client, host, podName, nameSpace, dep);
+					deploymentProcess.createDeployment(client, host, token, podName, nameSpace, dep);
 				} else if (deployType.equalsIgnoreCase("postgres")) {
 					PostgresModel postgresModel = new PostgresModel(podName);
 					dep = postgresModel.getDeployment();
-					createDeployment(client, host, podName, nameSpace, dep);
+					deploymentProcess.createDeployment(client, host, token, podName, nameSpace, dep);
 				} else {
 					return getTellSpeechletResponse(String.format("No images found for %s, please check and try again", deployType));
 				}
@@ -227,151 +238,122 @@ public class KubernetesControlSpeechlet implements Speechlet {
 		}
 
 
-	private CallResponse createDeployment(Client client, String host, String podName, String nameSpace, Deployment dep) {
-		String depPath =
-				String.format("/apis/apps/v1beta1/namespaces/%s/deployments", nameSpace.toLowerCase());
+//	private CallResponse createDeployment(Client client, String host, String podName, String nameSpace, Deployment dep) {
+//		String depPath =
+//				String.format("/apis/apps/v1beta1/namespaces/%s/deployments", nameSpace.toLowerCase());
+//
+//		WebResource deployment = client.resource("https://" + host + depPath);
+//
+//		Gson gson = new Gson();
+//
+//		String deploymentPost = gson.toJson(dep);
+//		System.out.println(deploymentPost);
+//
+//		ClientResponse response = deployment.header("Authorization", token)
+//				.type(MediaType.APPLICATION_JSON).post(ClientResponse.class, deploymentPost);
+//
+//		if (response.getStatus() != 201) {
+//			if(response.getStatus() == 409) {
+//				CallResponse callResponse = new CallResponse(getTellSpeechletResponse(
+//						String.format("Cannot create %s deployment as a deployment with that name already exists.", podName)),
+//						false);
+//				return callResponse;
+//			}
+//			log.error("Failed in call to create deployment : HTTP error code : "
+//					+ response.getStatus());
+//			CallResponse callResponse = new CallResponse(
+//					getTellSpeechletResponse("Problem when talking to kubernetes API. Deployment has not been created"),
+//					false);
+//			return callResponse;
+//		}
+//
+//		CallResponse callResponse = new CallResponse(
+//				getTellSpeechletResponse(String.format("%s has been deployed to %s", podName, nameSpace)),
+//				true);
+//		return callResponse;
+//
+//	}
 
-		WebResource deployment = client.resource("https://" + host + depPath);
-
-		Gson gson = new Gson();
-
-		String deploymentPost = gson.toJson(dep);
-		System.out.println(deploymentPost);
-
-		ClientResponse response = deployment.header("Authorization", token)
-				.type(MediaType.APPLICATION_JSON).post(ClientResponse.class, deploymentPost);
-
-		if (response.getStatus() != 201) {
-			if(response.getStatus() == 409) {
-				CallResponse callResponse = new CallResponse(getTellSpeechletResponse(
-						String.format("Cannot create %s deployment as a deployment with that name already exists.", podName)),
-						false);
-				return callResponse;
-			}
-			log.error("Failed in call to create deployment : HTTP error code : "
-					+ response.getStatus());
-			CallResponse callResponse = new CallResponse(
-					getTellSpeechletResponse("Problem when talking to kubernetes API. Deployment has not been created"),
-					false);
-			return callResponse;
-		}
-
-		CallResponse callResponse = new CallResponse(
-				getTellSpeechletResponse(String.format("%s has been deployed to %s", podName, nameSpace)),
-				true);
-		return callResponse;
-
-	}
-
-	private SpeechletResponse createService(Client client, String host, String podName, String nameSpace) {
-		Service service;
-		NginxServiceModel nginxServiceModel = new NginxServiceModel(podName, nameSpace);
-
-		service = nginxServiceModel.getService();
-
-		String servicePath =
-				String.format("/api/v1/namespaces/%s/services", nameSpace.toLowerCase());
-
-		WebResource deployment = client.resource("https://" + host + servicePath);
-
-		Gson gson = new Gson();
-
-		String servicePost = gson.toJson(service);
-		System.out.println(servicePost);
-
-		ClientResponse response = deployment.header("Authorization", token)
-				.type(MediaType.APPLICATION_JSON).post(ClientResponse.class, servicePost);
-
-		if (response.getStatus() != 201) {
-			if(response.getStatus() == 409) {
-				return getTellSpeechletResponse("Cannot create service " + podName + " as it already exists. Deployment hasn't been created.");
-			}
-			log.error("Failed in call to create deployment : HTTP error code : "
-					+ response.getStatus());
-
-			return getTellSpeechletResponse("Problem when talking to kubernetes API. Service has not been created, but deployment may have been.");
-		}
-
-		return getTellSpeechletResponse("Service " + podName + " has been deployed to " + nameSpace);
-
-	}
+//	private SpeechletResponse createService(Client client, String host, String podName, String nameSpace) {
+//		Service service;
+//		NginxServiceModel nginxServiceModel = new NginxServiceModel(podName, nameSpace);
+//
+//		service = nginxServiceModel.getService();
+//
+//		String servicePath =
+//				String.format("/api/v1/namespaces/%s/services", nameSpace.toLowerCase());
+//
+//		WebResource deployment = client.resource("https://" + host + servicePath);
+//
+//		Gson gson = new Gson();
+//
+//		String servicePost = gson.toJson(service);
+//		System.out.println(servicePost);
+//
+//		ClientResponse response = deployment.header("Authorization", token)
+//				.type(MediaType.APPLICATION_JSON).post(ClientResponse.class, servicePost);
+//
+//		if (response.getStatus() != 201) {
+//			if(response.getStatus() == 409) {
+//				return getTellSpeechletResponse("Cannot create service " + podName + " as it already exists. Deployment hasn't been created.");
+//			}
+//			log.error("Failed in call to create deployment : HTTP error code : "
+//					+ response.getStatus());
+//
+//			return getTellSpeechletResponse("Problem when talking to kubernetes API. Service has not been created, but deployment may have been.");
+//		}
+//
+//		return getTellSpeechletResponse("Service " + podName + " has been deployed to " + nameSpace);
+//
+//	}
 
     private SpeechletResponse deleteDeployment(Intent intent, Session session) {
     	String nameSpace = intent.getSlot(SLOT_NAME_SPACE).getValue();
-    	
+
     	if(nameSpace == null) {
     		 String speechText = "Sorry, I did not hear the name space name. Please say again?" +
     				 	"For example, You can say - Delete pod Name from name Space";
              return getAskSpeechletResponse(speechText, speechText);
     	}
     	log.info("nameSpace = " + nameSpace);
-    	
+
     	String podName = intent.getSlot(SLOT_POD_NAME).getValue();
-    	
+
     	if(podName == null) {
    		 String speechText = "Sorry, I did not hear the pod name. Please say again?" +
    				 	"For example, You can say - Delete pod Name from name Space";
             return getAskSpeechletResponse(speechText, speechText);
     	}
     	log.info("podName = " + podName);
-    	
+
     	String speech = "Are you sure you want to delete this deployment?";
-		
+
 		session.setAttribute("delete", nameSpace + ":" + podName);
 		return getAskSpeechletResponse(speech, speech);
 
 	}
     
-    private SpeechletResponse deleteAfterConfirm(String nameSpace, String podName) {
-    	try {
-    		
-    		DeleteOptions deleteOptions = new DeleteOptions();
-			deleteOptions.setKind("DeleteOptions");
-			deleteOptions.setApiVersion("apps/v1beta1");
-    	    deleteOptions.setGracePeriodSeconds(10L);
-    	    
-			Gson gson = new Gson();
-			String deploymentDelete = gson.toJson(deleteOptions);
-			String deleteManipulated = deploymentDelete.replace("{}", "{},\"propagationPolicy\":\"Foreground\"");
-    		
-    		String depPath =
-    		          String.format("/apis/apps/v1beta1/namespaces/%s/deployments/%s", nameSpace.toLowerCase(), podName.toLowerCase());
+	private SpeechletResponse deleteAfterConfirm(String nameSpace, String podName) {
 
-				WebResource deployment = client.resource("https://" + host + depPath);
-				ClientResponse response = deployment.header("Authorization", token)
-						.type(MediaType.APPLICATION_JSON).delete(ClientResponse.class, deleteManipulated);
-				if (response.getStatus() != 200) {
-					if(response.getStatus() == 404) {
-						return getTellSpeechletResponse("Cannot delete " + podName + " deployment as it doesn't exist.");
-					}
-					log.error("Failed in call to delete deployment : HTTP error code : "
-									+ response.getStatus());
+		SpeechletResponse response = deploymentProcess.deleteDeployment(client, host, token, podName, nameSpace);
 
-					return getTellSpeechletResponse("Problem when talking to kubernetes API. Deployment has not been deleted");
-				}
+		CallResponse serviceResponse = serviceProcess.getService(client, host, token, podName, nameSpace);
 
-				String servicePath =
-          String.format("/api/v1/namespaces/%s/services/%s", nameSpace.toLowerCase(), podName.toLowerCase());
+		if(serviceResponse.getSuccess()) {
+			CallResponse routingResponse = routingProcess.createRouting(serviceResponse.getIp(), serviceResponse.getHost());
+		} else {
+			return serviceResponse.getSpeechletResponse();
+		}
 
-      	WebResource service = client.resource("https://" + host + servicePath);
-      	ClientResponse serviceResponse = service.header("Authorization", token)
-      			.type(MediaType.APPLICATION_JSON).delete(ClientResponse.class);
-      	if (serviceResponse.getStatus() != 200 && serviceResponse.getStatus() != 404) {
-					log.error("Failed in call to delete service : HTTP error code : "
-							+ serviceResponse.getStatus());
+		if(serviceResponse.getSuccess()) {
+			CallResponse deleteResponse = serviceProcess.deleteService(client, host, token, podName, nameSpace);
 
-					return getTellSpeechletResponse("Problem when talking to kubernetes API. Service has not been deleted");
-				}
-
-    	}
-    	catch(Exception ex) {
-    		log.error("Exception when calling delete deployment api");
-    		log.error(ex.getMessage());
-    		ex.printStackTrace();
-    		return getTellSpeechletResponse("Problem when talking to kubernetes API.");
-    	}
-    	return getTellSpeechletResponse(podName + " has been deleted from " + nameSpace);
-    }
+			if(!deleteResponse.getSuccess()) {
+				return deleteResponse.getSpeechletResponse();
+			}
+		}
+		return response;
+	}
 
 	private SpeechletResponse scalePod(Intent intent, Session session) {
     	String nameSpace = intent.getSlot(SLOT_NAME_SPACE).getValue();
@@ -472,6 +454,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 		catch(Exception ex) {
 			return getTellSpeechletResponse("Problem when talking to kubernetes API.");
 		}
+
 		return getTellSpeechletResponse(String.format( "%s has been scaled to %s", podName, scaleNumber));
 	}
 	
@@ -603,7 +586,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 		return getAskSpeechletResponse(sb.toString(), sb.toString());
 	}
 
-	private SpeechletResponse getTellSpeechletResponse(String speechText) {
+	public static SpeechletResponse getTellSpeechletResponse(String speechText) {
         // Create the Simple card content.
         SimpleCard card = new SimpleCard();
         card.setTitle("Session");
@@ -730,109 +713,8 @@ public class KubernetesControlSpeechlet implements Speechlet {
 
         return SpeechletResponse.newAskResponse(speech, reprompt, card);
     }
-    
-//    private void callKubernetesApi() {
-//    	//String host = "ec2-34-250-241-111.eu-west-1.compute.amazonaws.com";
-//    	//String host = "api.k8sdemo.capademy.com";
-//    	//String port = "443";
-////    	String path = "/api";
-//      String path = "/api/v1/namespaces/kube-system/pods";
-//    	
-//    	log.info(SDKGlobalConfiguration.class.getProtectionDomain().getCodeSource().getLocation().toString());
-//    	
-//    	try{
-//
-////        AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
-////            .withRegion(Regions.EU_WEST_1)
-////            .build();
-////        S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "access/creds.yml"));
-////
-////        Yaml yaml = new Yaml();
-////        @SuppressWarnings("unchecked")
-////        HashMap<Object, Object> yamlParsers = (HashMap<Object, Object>) yaml.load(object.getObjectContent());
-////        final String user = yamlParsers.get("user").toString();
-////        final String password = yamlParsers.get("password").toString();
-////
-////
-////        // Create a trust manager that does not validate certificate chains
-////        TrustManager[] trustAllCerts = new TrustManager[] {new X509TrustManager() {
-////          public java.security.cert.X509Certificate[] getAcceptedIssuers() {
-////            return null;
-////          }
-////          public void checkClientTrusted(X509Certificate[] certs, String authType) {
-////          }
-////          public void checkServerTrusted(X509Certificate[] certs, String authType) {
-////          }
-////        }
-////        };
-////
-////        // Install the all-trusting trust manager
-////        SSLContext sc = SSLContext.getInstance("SSL");
-////        sc.init(null, trustAllCerts, new java.security.SecureRandom());
-////        HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
-////
-////        // Create all-trusting host name verifier
-////        HostnameVerifier allHostsValid = new HostnameVerifier() {
-////          public boolean verify(String hostname, SSLSession session) {
-////            return true;
-////          }
-////        };
-////
-////        // Install the all-trusting host verifier
-////        HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
-//
-////        Authenticator.setDefault (new Authenticator() {
-////          protected PasswordAuthentication getPasswordAuthentication() {
-////            return new PasswordAuthentication(user, password.toCharArray());
-////          }
-////        });
-//
-//        log.info("About to create the client");
-//
-//        //Client client = Client.create();
-//        //client.addFilter(new HTTPBasicAuthFilter(user, password));
-//
-//        log.info("Created Client");
-//
-//        WebResource webResource = client
-//            .resource("https://" + HOST + path);
-//
-//        log.info("Created WebResource");
-//
-////        PodList response = webResource.accept(MediaType.APPLICATION_JSON)
-////            .get(PodList.class);
-//
-//        ClientResponse r1 = webResource.accept(MediaType.APPLICATION_JSON)
-//            .get(ClientResponse.class);
-//        log.info("Called the Client");
-//
-//
-//        if (r1.getStatus() != 200) {
-//          throw new RuntimeException("Failed : HTTP error code : "
-//              + r1.getStatus());
-//        }
-//
-//        log.info("Status is " + r1.getStatus());
-//
-////        String output = response.getApiVersion();
-////        String output = r1.getEntity(String.class);
-//        
-//        Gson gson = new Gson();
-//        PodTemplateList podList = gson.fromJson(r1.getEntity(String.class), PodTemplateList.class );
-//
-//        log.info(podList.getApiVersion());
-//        List<PodTemplate> pt = podList.getItems();
-//        
-//        PodTemplate pod = pt.get(1);
-//
-//            
-//		} catch (Exception e) {
-//			// TODO Auto-generated catch block
-//        log.error("I have gone bang! " + e.getMessage());
-//			e.printStackTrace();
-//		}
-//    }
-    
+
+
     private void initialize() {
     	 try{
 
