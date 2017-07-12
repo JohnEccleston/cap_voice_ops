@@ -15,13 +15,14 @@ import com.amazon.speech.ui.PlainTextOutputSpeech;
 import com.amazon.speech.ui.Reprompt;
 import com.amazon.speech.ui.SimpleCard;
 import com.amazonaws.regions.Regions;
+import com.amazonaws.services.route53.model.ChangeAction;
+import com.amazonaws.services.route53.model.RRType;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -30,18 +31,18 @@ import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
 import com.sun.jersey.api.client.filter.HTTPBasicAuthFilter;
-
-import io.fabric8.kubernetes.api.model.DeleteOptions;
 import io.fabric8.kubernetes.api.model.extensions.Deployment;
 import io.fabric8.kubernetes.api.model.extensions.Scale;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 import voiceops.kubernetescontrol.model.*;
 import voiceops.kubernetescontrol.process.deployment.DeploymentProcess;
 import voiceops.kubernetescontrol.process.routing.RoutingProcess;
+import voiceops.kubernetescontrol.process.scale.ScaleProcess;
 import voiceops.kubernetescontrol.process.service.ServiceProcess;
+import voiceops.kubernetescontrol.process.speech.SpeechProcess;
+import voiceops.kubernetescontrol.process.status.StatusProcess;
 
 import javax.net.ssl.*;
 import javax.ws.rs.core.MediaType;
@@ -68,8 +69,6 @@ public class KubernetesControlSpeechlet implements Speechlet {
     private static final String SLOT_DEPLOY_TYPE = "deployType";
     private String host_aws;
     private String host_azure;
-//    private static final String HOST_AWS = "api.k8sdemo.capademy.com";
-//    private static final String HOST_AZURE = "k8democluster-techchallengerg-24ed28.eastus.cloudapp.azure.com";
     private static String host;
     private static String token;
     private String token_azure;
@@ -78,6 +77,9 @@ public class KubernetesControlSpeechlet implements Speechlet {
 		private ServiceProcess serviceProcess = new ServiceProcess();
 		private DeploymentProcess deploymentProcess = new DeploymentProcess();
 		private RoutingProcess routingProcess = new RoutingProcess();
+		private ScaleProcess scaleProcess = new ScaleProcess();
+		private StatusProcess statusProcess = new StatusProcess();
+		private SpeechProcess speechProcess = new SpeechProcess();
 
    //@Override
     public void onSessionStarted(final SessionStartedRequest request, final Session session)
@@ -100,15 +102,9 @@ public class KubernetesControlSpeechlet implements Speechlet {
             throws SpeechletException {
         log.info("onIntent requestId={}, sessionId={}", request.getRequestId(),
                 session.getSessionId());
-        
-        log.info("token when first entering intent = " + token);
-        
+
         //probably remove this, but session doesn't seem to close when testing
-
-				log.info("entering initialize");
-        initialize();
-
-        log.info("exited initialize");
+				initialize();
 
         Intent intent = request.getIntent();
         String intentName = (intent != null) ? intent.getName() : null;
@@ -134,7 +130,6 @@ public class KubernetesControlSpeechlet implements Speechlet {
         }
         
         log.info("host = " + host);
-        log.info("token = " + token);
 
         if ("CreateCluster".equals(intentName)) {
             return getCreateClusterResponse();
@@ -146,14 +141,14 @@ public class KubernetesControlSpeechlet implements Speechlet {
         	return scalePod(request.getIntent(), session);
         }else if("DeleteDeployment".equals(intentName)) {
         	return deleteDeployment(request.getIntent(), session);
-		} else if("DeployDeployment".equals(intentName)) {
+				} else if("DeployDeployment".equals(intentName)) {
         	return deployDeployment(request.getIntent(), session);
         }else if ("AMAZON.HelpIntent".equals(intentName)) {
             return getHelpResponse();
         } else if ("AMAZON.StopIntent".equals(intentName)) {
-            return getTellSpeechletResponse("Goodbye");
+            return speechProcess.getTellSpeechletResponse("Goodbye");
         }else if ("AMAZON.CancelIntent".equals(intentName)) {
-        	 return getTellSpeechletResponse("Goodbye");
+        	 return speechProcess.getTellSpeechletResponse("Goodbye");
         }else {
             throw new SpeechletException("Invalid Intent");
         }
@@ -162,22 +157,22 @@ public class KubernetesControlSpeechlet implements Speechlet {
     private SpeechletResponse deployDeployment(Intent intent, Session session) {
 			String nameSpace = intent.getSlot(SLOT_NAME_SPACE).getValue();
 			if (nameSpace == null) {
-				nameSpace = (String)session.getAttribute("namespace");
+				nameSpace = (String) session.getAttribute("namespace");
 				if (nameSpace == null) {
 					String speechText = "Sorry, I did not hear the name space. Please say again?" +
 							"For example, You can say - deploy image to name Space with pod Name";
-					return getAskSpeechletResponse(speechText, speechText);
+					return speechProcess.getAskSpeechletResponse(speechText, speechText);
 				}
 			}
 			log.info("nameSpace = " + nameSpace);
 
 			String podName = intent.getSlot(SLOT_POD_NAME).getValue();
 			if (podName == null) {
-				podName = (String)session.getAttribute("podName");
+				podName = (String) session.getAttribute("podName");
 				if (podName == null) {
 					String speechText = "Sorry, I did not hear the pod name. Please say again?" +
 							"For example, You can say - deploy image to name Space with pod Name";
-					return getAskSpeechletResponse(speechText, speechText);
+					return speechProcess.getAskSpeechletResponse(speechText, speechText);
 				}
 			}
 			log.info("podName = " + podName);
@@ -188,124 +183,12 @@ public class KubernetesControlSpeechlet implements Speechlet {
 				session.setAttribute("namespace", nameSpace);
 				session.setAttribute("podName", podName);
 				String speechText = "OK. What deployment type would you like? " +
-												"You can have engine ex, serve, or postgress";
-				return getAskSpeechletResponse(speechText, speechText);
+						"You can have engine ex, serve, postgress, or capgemini";
+				return speechProcess.getAskSpeechletResponse(speechText, speechText);
 			}
 
-			log.info("deployType = " + deployType);
-
-			try {
-				Deployment dep;
-				podName = podName.toLowerCase();
-				nameSpace = nameSpace.toLowerCase();
-				deployType = deployType.toLowerCase();
-
-				if (deployType.contains("ngin")) {
-					NginxModel nginxModel = new NginxModel(podName);
-					dep = nginxModel.getDeployment();
-					CallResponse response =  deploymentProcess.createDeployment(client, host, token, podName, nameSpace, dep);
-					if (!response.getSuccess()) {
-						return response.getSpeechletResponse();
-					}
-					return serviceProcess.createService(client, host, token, podName, nameSpace);
-				} else 	if (deployType.contains("gemini")) {
-					CapgeminiModel capgeminiModel = new CapgeminiModel(podName);
-					dep = capgeminiModel.getDeployment();
-					CallResponse response = deploymentProcess.createDeployment(client, host, token, podName, nameSpace, dep);
-					if (!response.getSuccess()) {
-						return response.getSpeechletResponse();
-					}
-					return serviceProcess.createService(client, host, token,  podName, nameSpace);
-				} else if (deployType.equalsIgnoreCase("serve")) {
-					ServeHostnameModel serveHostnameModel = new ServeHostnameModel(podName);
-					dep = serveHostnameModel.getDeployment();
-					deploymentProcess.createDeployment(client, host, token, podName, nameSpace, dep);
-				} else if (deployType.equalsIgnoreCase("postgres")) {
-					PostgresModel postgresModel = new PostgresModel(podName);
-					dep = postgresModel.getDeployment();
-					deploymentProcess.createDeployment(client, host, token, podName, nameSpace, dep);
-				} else {
-					return getTellSpeechletResponse(String.format("No images found for %s, please check and try again", deployType));
-				}
-
-			} catch (Exception ex) {
-				log.error("Exception when calling deploy deployment api");
-				log.error(ex.getMessage());
-				ex.printStackTrace();
-				return getTellSpeechletResponse("Problem when talking to kubernetes API. No deployment was made.");
-			}
-			return getTellSpeechletResponse(String.format("%s has been deployed to %s", podName, nameSpace));
+			return deploymentProcess.deploy(client, host, token, podName, nameSpace, deployType);
 		}
-
-
-//	private CallResponse createDeployment(Client client, String host, String podName, String nameSpace, Deployment dep) {
-//		String depPath =
-//				String.format("/apis/apps/v1beta1/namespaces/%s/deployments", nameSpace.toLowerCase());
-//
-//		WebResource deployment = client.resource("https://" + host + depPath);
-//
-//		Gson gson = new Gson();
-//
-//		String deploymentPost = gson.toJson(dep);
-//		System.out.println(deploymentPost);
-//
-//		ClientResponse response = deployment.header("Authorization", token)
-//				.type(MediaType.APPLICATION_JSON).post(ClientResponse.class, deploymentPost);
-//
-//		if (response.getStatus() != 201) {
-//			if(response.getStatus() == 409) {
-//				CallResponse callResponse = new CallResponse(getTellSpeechletResponse(
-//						String.format("Cannot create %s deployment as a deployment with that name already exists.", podName)),
-//						false);
-//				return callResponse;
-//			}
-//			log.error("Failed in call to create deployment : HTTP error code : "
-//					+ response.getStatus());
-//			CallResponse callResponse = new CallResponse(
-//					getTellSpeechletResponse("Problem when talking to kubernetes API. Deployment has not been created"),
-//					false);
-//			return callResponse;
-//		}
-//
-//		CallResponse callResponse = new CallResponse(
-//				getTellSpeechletResponse(String.format("%s has been deployed to %s", podName, nameSpace)),
-//				true);
-//		return callResponse;
-//
-//	}
-
-//	private SpeechletResponse createService(Client client, String host, String podName, String nameSpace) {
-//		Service service;
-//		NginxServiceModel nginxServiceModel = new NginxServiceModel(podName, nameSpace);
-//
-//		service = nginxServiceModel.getService();
-//
-//		String servicePath =
-//				String.format("/api/v1/namespaces/%s/services", nameSpace.toLowerCase());
-//
-//		WebResource deployment = client.resource("https://" + host + servicePath);
-//
-//		Gson gson = new Gson();
-//
-//		String servicePost = gson.toJson(service);
-//		System.out.println(servicePost);
-//
-//		ClientResponse response = deployment.header("Authorization", token)
-//				.type(MediaType.APPLICATION_JSON).post(ClientResponse.class, servicePost);
-//
-//		if (response.getStatus() != 201) {
-//			if(response.getStatus() == 409) {
-//				return getTellSpeechletResponse("Cannot create service " + podName + " as it already exists. Deployment hasn't been created.");
-//			}
-//			log.error("Failed in call to create deployment : HTTP error code : "
-//					+ response.getStatus());
-//
-//			return getTellSpeechletResponse("Problem when talking to kubernetes API. Service has not been created, but deployment may have been.");
-//		}
-//
-//		return getTellSpeechletResponse("Service " + podName + " has been deployed to " + nameSpace);
-//
-//	}
 
     private SpeechletResponse deleteDeployment(Intent intent, Session session) {
     	String nameSpace = intent.getSlot(SLOT_NAME_SPACE).getValue();
@@ -313,7 +196,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
     	if(nameSpace == null) {
     		 String speechText = "Sorry, I did not hear the name space name. Please say again?" +
     				 	"For example, You can say - Delete pod Name from name Space";
-             return getAskSpeechletResponse(speechText, speechText);
+             return speechProcess.getAskSpeechletResponse(speechText, speechText);
     	}
     	log.info("nameSpace = " + nameSpace);
 
@@ -322,14 +205,14 @@ public class KubernetesControlSpeechlet implements Speechlet {
     	if(podName == null) {
    		 String speechText = "Sorry, I did not hear the pod name. Please say again?" +
    				 	"For example, You can say - Delete pod Name from name Space";
-            return getAskSpeechletResponse(speechText, speechText);
+            return speechProcess.getAskSpeechletResponse(speechText, speechText);
     	}
     	log.info("podName = " + podName);
 
     	String speech = "Are you sure you want to delete this deployment?";
 
 		session.setAttribute("delete", nameSpace + ":" + podName);
-		return getAskSpeechletResponse(speech, speech);
+		return speechProcess.getAskSpeechletResponse(speech, speech);
 
 	}
     
@@ -340,7 +223,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 		CallResponse serviceResponse = serviceProcess.getService(client, host, token, podName, nameSpace);
 
 		if(serviceResponse.getSuccess()) {
-			CallResponse routingResponse = routingProcess.createRouting(serviceResponse.getIp(), serviceResponse.getHost());
+			CallResponse routingResponse = routingProcess.route(ChangeAction.DELETE, serviceResponse.getIp(), serviceResponse.getHost());
 		} else {
 			return serviceResponse.getSpeechletResponse();
 		}
@@ -362,7 +245,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
     		 String speechText = "Sorry, I did not hear the name space name. Please say again?" +
     				 	"For example, You can say - Scale pod name in name space to 5, or, " +
     				     "You can say - Scale up/down pod name in name space";
-             return getAskSpeechletResponse(speechText, speechText);
+             return speechProcess.getAskSpeechletResponse(speechText, speechText);
     	}
     	
     	log.info("nameSpace = " + nameSpace);
@@ -373,7 +256,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
    		 String speechText = "Sorry, I did not hear the pod name. Please say again?" +
    				 	"For example, You can say - Scale pod name in name space to 5, or, " +
    				     "You can say - Scale up/down pod name in name space";
-            return getAskSpeechletResponse(speechText, speechText);
+            return speechProcess.getAskSpeechletResponse(speechText, speechText);
     	}
     	log.info("podName = " + podName);
     	
@@ -388,7 +271,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
     		log.info("scaleNumber = " + scaleNumber);
     	}
     	
-    	Scale depScaleIn = getdepScaleIn(nameSpace, podName);
+    	Scale depScaleIn = scaleProcess.getdepScaleIn(client, host, token, nameSpace, podName);
     	
     	if(scaleNumber != null) {
     		int scaleNumberInt;
@@ -398,94 +281,18 @@ public class KubernetesControlSpeechlet implements Speechlet {
             	String speechText = "Sorry, I did not hear the number you wanted to scale by. Please say again?" +
        				 	"For example, You can say - Scale pod name in name space to 5, or, " +
        				     "You can say - Scale up/down pod name in name space";
-                return getAskSpeechletResponse(speechText, speechText);
+                return speechProcess.getAskSpeechletResponse(speechText, speechText);
             }
-    		return scaleByNumber(nameSpace, podName, scaleNumberInt, depScaleIn);
+    		return scaleProcess.scaleByNumber(client, host, token, nameSpace, podName, scaleNumberInt, depScaleIn);
     	}
     	else if (scaleDir != null) {
-    		return scaleUpDown(nameSpace, podName, scaleDir, depScaleIn);
+    		return scaleProcess.scaleUpDown(client, host, token, nameSpace, podName, scaleDir, depScaleIn);
     	}
 
 		String speechText = "Sorry, I did not hear how you wanted to scale. Please say again?" +
 			 	"For example, You can say - Scale pod name in name space to 5, or, " +
 			     "You can say - Scale up/down pod name in name space";
-        return getAskSpeechletResponse(speechText, speechText);
-	}
-
-	private SpeechletResponse scaleUpDown(String nameSpace, String podName, String scaleDir, Scale depScaleIn) {
-		
-		  if(depScaleIn == null) {
-			  return getTellSpeechletResponse("Problem when talking to kubernetes API.");
-		  }
-      
-	      if (scaleDir.equalsIgnoreCase("up")) {
-	          depScaleIn.getSpec().setReplicas(depScaleIn.getSpec().getReplicas() + 1);
-	      } 
-	      else if (scaleDir.equalsIgnoreCase("down")) {
-	          if (depScaleIn.getSpec().getReplicas() > 0) {
-	            depScaleIn.getSpec().setReplicas(depScaleIn.getSpec().getReplicas() - 1);
-	          }
-	      }
-	      else {
-	    	  String speechText = "Sorry, I did not hear if you wanted to scale up or down. Please say again?" +
-	  			 	"For example, You can say - Scale pod name in name space to 5, or, " +
-	  			     "You can say - Scale up/down pod name in name space";
-	          return getAskSpeechletResponse(speechText, speechText);
-	      }
-		return scaleByNumber(nameSpace, podName, depScaleIn.getSpec().getReplicas(), depScaleIn);
-	}
-
-	private SpeechletResponse scaleByNumber(String nameSpace, String podName, int scaleNumber, Scale depScaleIn) {
-		
-		 if(depScaleIn == null) {
-			  return getTellSpeechletResponse("Problem when talking to kubernetes API.");
-		  }
-		 depScaleIn.getSpec().setReplicas(scaleNumber);
-		try {
-				Gson gson = new Gson();
-				String depPath =
-			    String.format("/apis/extensions/v1beta1/namespaces/%s/deployments/%s/scale", nameSpace.toLowerCase(), podName.toLowerCase());
-				WebResource hpaPut = client
-				          .resource("https://" + host + depPath);
-				String depScaleOut = gson.toJson(depScaleIn);
-				hpaPut.header("Authorization", token)
-				.type(MediaType.APPLICATION_JSON).put(depScaleOut);
-		}
-		catch(Exception ex) {
-			return getTellSpeechletResponse("Problem when talking to kubernetes API.");
-		}
-
-		return getTellSpeechletResponse(String.format( "%s has been scaled to %s", podName, scaleNumber));
-	}
-	
-	private Scale getdepScaleIn(String nameSpace, String podName) {
-		
-		Scale depScaleIn = null;
-		 
-		try {
-				Gson gson = new Gson();
-		      String depPath =
-		          String.format("/apis/extensions/v1beta1/namespaces/%s/deployments/%s/scale", nameSpace.toLowerCase(), podName.toLowerCase());
-		      log.info("depPath = " + depPath);
-		      WebResource hpaGet = client
-		          .resource("https://" + host + depPath);
-		      ClientResponse depGetResponse = hpaGet.header("Authorization", token)
-		    		  .accept(MediaType.APPLICATION_JSON).get(ClientResponse.class);
-		      if (depGetResponse.getStatus() != 200) {
-		    	  log.error("Failed in call to scale : HTTP error code : "
-			              + depGetResponse.getStatus());
-		      }
-		      else {
-		    	  depScaleIn = gson.fromJson(depGetResponse.getEntity(String.class), Scale.class);
-		      }
-		}
-		catch(Exception ex) {
-			log.error("Exception when calling scale api");
-    		log.error(ex.getMessage());
-    		ex.printStackTrace();
-		}
-		
-		return depScaleIn;
+        return speechProcess.getAskSpeechletResponse(speechText, speechText);
 	}
 	
 	private SpeechletResponse getConfirmResponse(Intent intent, Session session) {
@@ -496,139 +303,23 @@ public class KubernetesControlSpeechlet implements Speechlet {
 			 Object obj = session.getAttribute("pods");
 	    	 ObjectMapper mapper = new ObjectMapper();
 	    	 List<Pod> pods = mapper.convertValue(obj, new TypeReference<List<Pod>>() { });
-	    	 return getPodStatusSpeech(pods);
+	    	 return speechProcess.getPodStatusSpeech(pods);
 		}
 		else if(map.containsKey("delete")) {
 			String deleteStr = (String)session.getAttribute("delete");
 			String[] deleteParams = deleteStr.split(":");
 			return deleteAfterConfirm(deleteParams[0], deleteParams[1]);
 		}
-		return getTellSpeechletResponse("Sorry, I'm not sure what action you are trying to confirm.");
+		return speechProcess.getTellSpeechletResponse("Sorry, I'm not sure what action you are trying to confirm.");
 	}
-
-//	private SpeechletResponse getlistAllPodStatusResponse(Intent intent, Session session) {
-//    	 Object obj = session.getAttribute("pods"); 	 
-//    	 ObjectMapper mapper = new ObjectMapper();
-//    	 List<Pod> pods = mapper.convertValue(obj, new TypeReference<List<Pod>>() { });
-//    	 return getPodStatusSpeech(pods);
-//	}
 
 	private SpeechletResponse getPodStatusResponse(Intent intent, Session session) {
-    	
-    	//String host = "api.k8sdemo.capademy.com";
-    	//String path = "/api/v1/namespaces/kube-system/pods";
-    	List<Pod> pods = new ArrayList<Pod>();
-    	
-    	String nameSpace = intent.getSlot(SLOT_NAME_SPACE).getValue();
-    	
-    	log.info("nameSpace = " + intent.getSlot(SLOT_NAME_SPACE).getValue());
-    	
-        if (nameSpace == null) {
-            String speechText = "OK. For what name space?";
-            return getAskSpeechletResponse(speechText, speechText);
-        }
-        
-        String path = "/api/v1/namespaces/" + nameSpace.toLowerCase() + "/pods";
-    	
-    	try {
-	    	WebResource webResource = client
-	                .resource("https://" + host + path);
-	    	
-	    	 ClientResponse r1 = webResource.header("Authorization", token)
-	    			 .accept(MediaType.APPLICATION_JSON)
-	    	            .get(ClientResponse.class);
-	    	        log.info("Called the Client");
-	
-	
-	        if (r1.getStatus() != 200) {
-	          log.error("Failed in call to pods : HTTP error code : "
-	              + r1.getStatus());
-	        	
-	        	return getTellSpeechletResponse("Problem when talking to kubernetes API.");
-	        }
-	    	
-	        String output = r1.getEntity(String.class);   
-	        JsonObject jsonObject = new JsonParser().parse(output).getAsJsonObject();
-	        JsonArray items = jsonObject.get("items").getAsJsonArray();
-	        	        
-	        for (JsonElement item : items) {
-	        	Pod pod = new Pod();
-	      	  	pod.setName(item.getAsJsonObject().get("metadata").getAsJsonObject().get("name").getAsString());
-	      	  	pod.setStatus(item.getAsJsonObject().get("status").getAsJsonObject().get("phase").getAsString());
-	      	    pods.add(pod);
-	      	}
-    	}
-    	catch(Exception ex) {
-    		//error caught when calling web service
-    		//respond appropriately
-    		log.error("Exception when calling pods api");
-    		log.error(ex.getMessage());
-    		ex.printStackTrace();
-    		return getTellSpeechletResponse("Problem when talking to kubernetes API.");
-    	}
-		
-    	if(pods.isEmpty()) {
-    		return getTellSpeechletResponse("No pods found for that name space.");
-    	}
-    	
-    	if(pods.size() < 6) {
-    		return getPodStatusSpeech(pods);
-    	}
-    	return getMoreThan5Speech(pods, session);
-	}
-    
-    private SpeechletResponse getMoreThan5Speech(List<Pod> pods, Session session) {
-   	
-		StringBuilder sb = new StringBuilder("This enviroment has " + pods.size() + " pods, would" +
-				" you like me to list them all and their statuses. ");
-		
-		session.setAttribute("pods", pods);
-		return getAskSpeechletResponse(sb.toString(), sb.toString());
-	}
 
-	public static SpeechletResponse getTellSpeechletResponse(String speechText) {
-        // Create the Simple card content.
-        SimpleCard card = new SimpleCard();
-        card.setTitle("Session");
-        card.setContent(speechText);
+		String nameSpace = intent.getSlot(SLOT_NAME_SPACE).getValue();
 
-        // Create the plain text output.
-        PlainTextOutputSpeech speech = new PlainTextOutputSpeech();
-        speech.setText(speechText);
+		log.info("nameSpace = " + intent.getSlot(SLOT_NAME_SPACE).getValue());
 
-        return SpeechletResponse.newTellResponse(speech, card);
-    }
-    
-    private SpeechletResponse getAskSpeechletResponse(String speechText, String repromptText) {
-        // Create the Simple card content.
-        SimpleCard card = new SimpleCard();
-        card.setTitle("Session");
-        card.setContent(speechText);
-
-        // Create the plain text output.
-        PlainTextOutputSpeech speech = new PlainTextOutputSpeech();
-        speech.setText(speechText);
-
-        // Create reprompt
-        PlainTextOutputSpeech repromptSpeech = new PlainTextOutputSpeech();
-        repromptSpeech.setText(repromptText);
-        Reprompt reprompt = new Reprompt();
-        reprompt.setOutputSpeech(repromptSpeech);
-
-        return SpeechletResponse.newAskResponse(speech, reprompt, card);
-    }
-
-	private SpeechletResponse getPodStatusSpeech(List<Pod> pods) {
-		
-		StringBuilder sb = new StringBuilder("I will now list the pods for this environment " +
-				"and their statuses. ");
-		
-		for(Pod pod : pods) {
-			sb.append(pod.getName() + ", " + pod.getStatus() + ". ");
-		}
-		sb.append(" Thanks");
-		
-		return getTellSpeechletResponse(sb.toString());
+		return statusProcess.getPodStatus(client, host, token, nameSpace, session);
 	}
 
 	//@Override

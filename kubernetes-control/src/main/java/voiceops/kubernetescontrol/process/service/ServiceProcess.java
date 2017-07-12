@@ -1,34 +1,34 @@
 package voiceops.kubernetescontrol.process.service;
 
 import com.amazon.speech.speechlet.SpeechletResponse;
-import com.amazonaws.services.route53.model.RRType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
-import jdk.nashorn.internal.codegen.CompilerConstants;
+import io.fabric8.kubernetes.api.model.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import voiceops.kubernetescontrol.KubernetesControlSpeechlet;
 import voiceops.kubernetescontrol.model.CallResponse;
 import voiceops.kubernetescontrol.model.NginxServiceModel;
+import voiceops.kubernetescontrol.process.speech.SpeechProcess;
 
 import javax.ws.rs.core.MediaType;
 
 /**
  * Created by johneccleston on 12/07/2017.
  */
-public class ServiceProcess extends KubernetesControlSpeechlet {
+public class ServiceProcess {
 
   private static final Logger log = LoggerFactory.getLogger(ServiceProcess.class);
+  private SpeechProcess speechProcess = new SpeechProcess();
 
-  public SpeechletResponse createService(Client client, String host, String token, String podName, String nameSpace) {
-    io.fabric8.kubernetes.api.model.Service service;
+  public CallResponse createService(Client client, String host, String token, String podName, String nameSpace) {
+
+    CallResponse callResponse;
     NginxServiceModel nginxServiceModel = new NginxServiceModel(podName, nameSpace);
-
-    service = nginxServiceModel.getService();
+    Service service = nginxServiceModel.getService();
 
     String servicePath =
         String.format("/api/v1/namespaces/%s/services", nameSpace.toLowerCase());
@@ -45,20 +45,29 @@ public class ServiceProcess extends KubernetesControlSpeechlet {
 
     if (response.getStatus() != 201) {
       if(response.getStatus() == 409) {
-        return getTellSpeechletResponse("Cannot create service " + podName + " as it already exists. Deployment hasn't been created.");
+        callResponse = new CallResponse(
+            speechProcess.getTellSpeechletResponse("Cannot create service " + podName + " as it already exists. Deployment hasn't been created."),
+            false);
+        return callResponse;
       }
       log.error("Failed in call to create deployment : HTTP error code : "
           + response.getStatus());
 
-      return getTellSpeechletResponse("Problem when talking to kubernetes API. Service has not been created, but deployment may have been.");
+      callResponse = new CallResponse(
+          speechProcess.getTellSpeechletResponse("Problem when talking to kubernetes API. Service has not been created, but deployment may have been."),
+          false);
+      return callResponse;
     }
 
-    return getTellSpeechletResponse("Service " + podName + " has been deployed to " + nameSpace);
+    callResponse = new CallResponse(
+        speechProcess.getTellSpeechletResponse("Service " + podName + " has been deployed to " + nameSpace),
+        true);
+    return callResponse;
   }
 
   public CallResponse getService(Client client, String host, String token, String podName, String nameSpace) {
     String singleServicePath =
-        String.format("/api/v1/namespaces/%s/services/%s", nameSpace, podName);
+        String.format("/api/v1/namespaces/%s/services/%s", nameSpace.toLowerCase(), podName.toLowerCase());
 
     CallResponse callResponse;
 
@@ -80,8 +89,17 @@ public class ServiceProcess extends KubernetesControlSpeechlet {
                 .get(ClientResponse.class);
 
         if (serGetResponse.getStatus() != 200) {
-          throw new RuntimeException("Failed : HTTP error code : "
+          if (serGetResponse.getStatus() == 404) {
+            callResponse = new CallResponse(
+                speechProcess.getTellSpeechletResponse("Cannot delete " + podName + " service... assuming it never existed"),
+                true);
+          }
+          log.error("Failed in call to delete deployment : HTTP error code : "
               + serGetResponse.getStatus());
+
+          callResponse = new CallResponse(
+              speechProcess.getTellSpeechletResponse("Problem when talking to kubernetes API. Service has not been deleted"),
+              false);
         }
 
         ObjectMapper objectMapper = new ObjectMapper();
@@ -95,10 +113,11 @@ public class ServiceProcess extends KubernetesControlSpeechlet {
       log.error("Exception when calling get service api");
       log.error(ex.getMessage());
       ex.printStackTrace();
-      callResponse = new CallResponse(getTellSpeechletResponse("Problem when talking to kubernetes API."), false);
+      callResponse = new CallResponse(speechProcess.getTellSpeechletResponse("Problem when talking to kubernetes API."), false);
       return callResponse;
     }
-    callResponse = new CallResponse(getTellSpeechletResponse("getService was successful"), true);
+
+    callResponse = new CallResponse(speechProcess.getTellSpeechletResponse("getService was successful"), true);
     callResponse.setHost(hostname);
     callResponse.setIp(ip);
     return callResponse;
@@ -118,7 +137,7 @@ public class ServiceProcess extends KubernetesControlSpeechlet {
             if (serviceResponse.getStatus() != 200 && serviceResponse.getStatus() != 404) {
           log.error("Failed in call to delete service : HTTP error code : "
               + serviceResponse.getStatus());
-          callResponse = new CallResponse(getTellSpeechletResponse("Problem when talking to kubernetes API. Service has not been deleted"), false);
+          callResponse = new CallResponse(speechProcess.getTellSpeechletResponse("Problem when talking to kubernetes API. Service has not been deleted"), false);
           return callResponse;
         }
 
@@ -126,10 +145,10 @@ public class ServiceProcess extends KubernetesControlSpeechlet {
         log.error("Exception when calling delete service api");
         log.error(ex.getMessage());
         ex.printStackTrace();
-        callResponse = new CallResponse(getTellSpeechletResponse("Problem when talking to kubernetes API."), false);
+        callResponse = new CallResponse(speechProcess.getTellSpeechletResponse("Problem when talking to kubernetes API."), false);
         return callResponse;
     }
-    callResponse = new CallResponse(getTellSpeechletResponse(String.format("Service %s has been deleted from %s", podName, nameSpace)), true);
+    callResponse = new CallResponse(speechProcess.getTellSpeechletResponse(String.format("Service %s has been deleted from %s", podName, nameSpace)), true);
     return callResponse;
   }
 }
