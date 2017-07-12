@@ -3,6 +3,7 @@
 
 # install ssl cert
 - hosts: sslhost
+  become: true
   roles:
      -  sslcert
   tags:
@@ -10,6 +11,7 @@
 
 # Install etcd
 - hosts: etcd
+  become: true
   roles:
    -   etcd
   tags:
@@ -17,11 +19,13 @@
 
 # Install flannel
 - hosts: all
+  become: true
   roles:
    - flannel
 
 # Install docker
 - hosts: all
+  become: true
   roles:
     - docker
   tags:
@@ -29,6 +33,7 @@
 
 # install haproxy
 - hosts: masters
+  become: true
   roles:
     - haproxy
   tags:
@@ -36,6 +41,7 @@
 
 # install kubernetes master services
 - hosts: masters
+  become: true
   roles:
     - master
   tags:
@@ -43,6 +49,7 @@
 
 # install kubernetes on the nodes
 - hosts: node
+  become: true
   roles:
     - node
   tags:

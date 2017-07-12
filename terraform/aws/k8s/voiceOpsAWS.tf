@@ -249,7 +249,7 @@ resource "aws_launch_configuration" "voiceOpsMaster" {
     name                        = "voiceOpsMaster"
     image_id                    = "ami-7d50491b"
     instance_type               = "t2.medium"
-    key_name                    = "demo"
+    key_name                    = "voiceOpsk8s"
     iam_instance_profile        = "${aws_iam_instance_profile.voiceOpsMastersInstanceProfile.id}"
     security_groups             = ["${aws_security_group.voiceOpsMastersSg.id}"]
     associate_public_ip_address = true
@@ -270,7 +270,7 @@ resource "aws_launch_configuration" "voiceOpsNode" {
     name                        = "voiceOpsNode"
     image_id                    = "ami-7d50491b"
     instance_type               = "t2.large"
-    key_name                    = "demo"
+    key_name                    = "voiceOpsk8s"
     iam_instance_profile        = "${aws_iam_instance_profile.voiceOpsNodesInstanceProfile.id}"
     security_groups             = ["${aws_security_group.voiceOpsNodesSg.id}"]
     associate_public_ip_address = true
