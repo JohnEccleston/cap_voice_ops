@@ -403,28 +403,32 @@ public class KubernetesControlSpeechlet implements Speechlet {
     		log.info("scaleNumber = " + scaleNumber);
     	}
     	
-    	Scale depScaleIn = getdepScaleIn(nameSpace, podName);
-    	
-    	if(scaleNumber != null) {
-    		int scaleNumberInt;
-    		try {
-                scaleNumberInt = Integer.parseInt(intent.getSlot(SLOT_SCALE_NUMBER).getValue());
-            } catch (NumberFormatException e) {
-            	String speechText = "Sorry, I did not hear the number you wanted to scale by. Please say again?" +
-       				 	"For example, You can say - Scale pod name in name space to 5, or, " +
-       				     "You can say - Scale up/down pod name in name space";
-                return getAskSpeechletResponse(speechText, speechText);
-            }
-    		return scaleByNumber(nameSpace, podName, scaleNumberInt, depScaleIn);
-    	}
-    	else if (scaleDir != null) {
-    		return scaleUpDown(nameSpace, podName, scaleDir, depScaleIn);
-    	}
+    	CallResponse response = getdepScaleIn(nameSpace, podName);
 
-		String speechText = "Sorry, I did not hear how you wanted to scale. Please say again?" +
-			 	"For example, You can say - Scale pod name in name space to 5, or, " +
-			     "You can say - Scale up/down pod name in name space";
-        return getAskSpeechletResponse(speechText, speechText);
+    	if(response.getSuccess()) {
+    	
+	    	if(scaleNumber != null) {
+	    		int scaleNumberInt;
+	    		try {
+	                scaleNumberInt = Integer.parseInt(intent.getSlot(SLOT_SCALE_NUMBER).getValue());
+	            } catch (NumberFormatException e) {
+	            	String speechText = "Sorry, I did not hear the number you wanted to scale by. Please say again?" +
+	       				 	"For example, You can say - Scale pod name in name space to 5, or, " +
+	       				     "You can say - Scale up/down pod name in name space";
+	                return getAskSpeechletResponse(speechText, speechText);
+	            }
+	    		return scaleByNumber(nameSpace, podName, scaleNumberInt, response.getScale());
+	    	}
+	    	else if (scaleDir != null) {
+	    		return scaleUpDown(nameSpace, podName, scaleDir, response.getScale());
+	    	}
+	
+			String speechText = "Sorry, I did not hear how you wanted to scale. Please say again?" +
+				 	"For example, You can say - Scale pod name, in, name space to 5, or, " +
+				     "You can say - Scale up, pod name, in, name space";
+	        return getAskSpeechletResponse(speechText, speechText);
+    	}
+    	return response.getSpeechletResponse();
 	}
 
 	private SpeechletResponse scaleUpDown(String nameSpace, String podName, String scaleDir, Scale depScaleIn) {
@@ -443,8 +447,8 @@ public class KubernetesControlSpeechlet implements Speechlet {
 	      }
 	      else {
 	    	  String speechText = "Sorry, I did not hear if you wanted to scale up or down. Please say again?" +
-	  			 	"For example, You can say - Scale pod name in name space to 5, or, " +
-	  			     "You can say - Scale up/down pod name in name space";
+	  			 	"For example, You can say - Scale pod name, in, name space to 5, or, " +
+	  			     "You can say - Scale up, pod name, in, name space";
 	          return getAskSpeechletResponse(speechText, speechText);
 	      }
 		return scaleByNumber(nameSpace, podName, depScaleIn.getSpec().getReplicas(), depScaleIn);
@@ -472,7 +476,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 		return getTellSpeechletResponse(String.format( "%s has been scaled to %s", podName, scaleNumber));
 	}
 	
-	private Scale getdepScaleIn(String nameSpace, String podName) {
+	private CallResponse getdepScaleIn(String nameSpace, String podName) {
 		
 		Scale depScaleIn = null;
 		 
@@ -486,8 +490,18 @@ public class KubernetesControlSpeechlet implements Speechlet {
 		      ClientResponse depGetResponse = hpaGet.header("Authorization", token)
 		    		  .accept(MediaType.APPLICATION_JSON).get(ClientResponse.class);
 		      if (depGetResponse.getStatus() != 200) {
+		    	  if(depGetResponse.getStatus() == 404) {
+		    		  CallResponse callResponse = new CallResponse(getTellSpeechletResponse(
+								"Cannot scale deployment as deployment doesn't exist."),
+								false);
+		    		  return callResponse;
+		    	  }
 		    	  log.error("Failed in call to scale : HTTP error code : "
 			              + depGetResponse.getStatus());
+		    	  CallResponse callResponse = new CallResponse(
+							getTellSpeechletResponse("Problem when talking to kubernetes API. Deployment has not been scaled"),
+							false);
+		    	  return callResponse;
 		      }
 		      else {
 		    	  depScaleIn = gson.fromJson(depGetResponse.getEntity(String.class), Scale.class);
@@ -499,7 +513,11 @@ public class KubernetesControlSpeechlet implements Speechlet {
     		ex.printStackTrace();
 		}
 		
-		return depScaleIn;
+		CallResponse callResponse = new CallResponse(
+				getTellSpeechletResponse(""),
+				true);
+		callResponse.setScale(depScaleIn);
+		return callResponse;
 	}
 	
 	private SpeechletResponse getConfirmResponse(Intent intent, Session session) {
