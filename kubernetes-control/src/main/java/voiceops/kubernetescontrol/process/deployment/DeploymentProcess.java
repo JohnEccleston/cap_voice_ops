@@ -6,6 +6,8 @@ import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
 import io.fabric8.kubernetes.api.model.DeleteOptions;
+import io.fabric8.kubernetes.api.model.extensions.Deployment;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import voiceops.kubernetescontrol.KubernetesControlSpeechlet;
@@ -19,8 +21,16 @@ import javax.ws.rs.core.MediaType;
 public class DeploymentProcess extends KubernetesControlSpeechlet {
 
   private static final Logger log = LoggerFactory.getLogger(DeploymentProcess.class);
+  
+  public Deployment getDeployment(Client client, String host, String token, String podName, String nameSpace) {
+	  String depPath =
+		        String.format("/apis/apps/v1beta1/namespaces/%s/deployments/%s", nameSpace.toLowerCase(), podName.toString());
+	  
+	  return null;
+	  
+  }
 
-  public CallResponse createDeployment(Client client, String host, String token, String podName, String nameSpace, io.fabric8.kubernetes.api.model.extensions.Deployment dep) {
+  public CallResponse createDeployment(Client client, String host, String token, String podName, String nameSpace, Deployment dep) {
     String depPath =
         String.format("/apis/apps/v1beta1/namespaces/%s/deployments", nameSpace.toLowerCase());
 

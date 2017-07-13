@@ -66,6 +66,10 @@ public class KubernetesControlSpeechlet implements Speechlet {
     private static final String SLOT_SCALE_NUMBER = "scaleNumber";
     private static final String SLOT_POD_NAME = "podName";
     private static final String SLOT_DEPLOY_TYPE = "deployType";
+    private static final String SLOT_CLOUD_PROVIDER = "cloudProvider";
+    private static final String SLOT_FROM_CLOUD_PROVIDER = "fromCloudProvider";
+    private static final String SLOT_TO_CLOUD_PROVIDER = "toCloudProvider";
+    
     private String host_aws;
     private String host_azure;
 //    private static final String HOST_AWS = "api.k8sdemo.capademy.com";
@@ -119,7 +123,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
         String cloudProvider = (String) session.getAttribute("provider");
         
         if(cloudProvider == null) {
-        	cloudProvider = intent.getSlot("cloudProvider").getValue();
+        	cloudProvider = intent.getSlot(SLOT_CLOUD_PROVIDER).getValue();
         }
         
         log.info("Cloud Provider = " + cloudProvider);
@@ -148,7 +152,9 @@ public class KubernetesControlSpeechlet implements Speechlet {
         	return deleteDeployment(request.getIntent(), session);
 		} else if("DeployDeployment".equals(intentName)) {
         	return deployDeployment(request.getIntent(), session);
-        }else if ("AMAZON.HelpIntent".equals(intentName)) {
+        } else if("MigrateDeployment".equals(intentName)) {
+        	return migrateDeployment(request.getIntent(), session);
+        } else if ("AMAZON.HelpIntent".equals(intentName)) {
             return getHelpResponse();
         } else if ("AMAZON.StopIntent".equals(intentName)) {
             return getTellSpeechletResponse("Goodbye");
@@ -159,7 +165,38 @@ public class KubernetesControlSpeechlet implements Speechlet {
         }
     }
 
-    private SpeechletResponse deployDeployment(Intent intent, Session session) {
+    private SpeechletResponse migrateDeployment(Intent intent, Session session) {
+
+    	String podName = intent.getSlot(SLOT_POD_NAME).getValue();
+
+    	if(podName == null) {
+   		 String speechText = "Sorry, I did not hear the deployment name. Please say again?" +
+   				 	"For example, You can say - Migrate deployment from aws to azure";
+            return getAskSpeechletResponse(speechText, speechText);
+    	}
+    	log.info("podName = " + podName);
+    	
+    	String from = intent.getSlot(SLOT_FROM_CLOUD_PROVIDER).getValue();
+
+    	if(from == null) {
+   		 String speechText = "Sorry, I did not hear where you wanted to migrate from. Please say again?" +
+   				 	"For example, You can say - Migrate deployment from aws to azure";
+            return getAskSpeechletResponse(speechText, speechText);
+    	}
+    	log.info("from = " + from);
+    	
+    	String to = intent.getSlot(SLOT_TO_CLOUD_PROVIDER).getValue();
+
+    	if(to == null) {
+   		 String speechText = "Sorry, I did not hear where you wanted to migrate to. Please say again?" +
+   				 	"For example, You can say - Migrate deployment from aws to azure";
+            return getAskSpeechletResponse(speechText, speechText);
+    	}
+    	log.info("to = " + podName);
+		return null;
+	}
+
+	private SpeechletResponse deployDeployment(Intent intent, Session session) {
 			String nameSpace = intent.getSlot(SLOT_NAME_SPACE).getValue();
 			if (nameSpace == null) {
 				nameSpace = (String)session.getAttribute("namespace");
