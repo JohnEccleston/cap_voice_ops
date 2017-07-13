@@ -1,27 +1,28 @@
 ---
 - name: Install etcd dependencies
-  yum:
-    name: {{item}}
-    state: latest
-    with_items:
-      - git
-
-- name: Download Go
-  get_url:
-    url: 'https://storage.googleapis.com/golang/go1.8.3.linux-amd64.tar.gz'
-    dest: '/tmp/go1.8.3.linux-amd64.tar.gz'
-
-- name: Install Go
-  command: 'tar -C /usr/local/ -xzf go1.8.3.linux-amd64.tar.gz'
-
-- name: Add go to path
-  command: 'export PATH=$PATH:/usr/local/go/bin'
+  yum: name={{item}} state=latest
+  with_items:
+  - 'git'
 
 - name: Make sure opt exists
   file:
     path: /opt
     state: directory
     mode: 0755
+
+- name: Download and unpack Go
+  unarchive:
+    src: 'https://storage.googleapis.com/golang/go1.8.3.linux-amd64.tar.gz'
+    dest: /opt
+    remote_src: True
+
+- name: Symlink Go into /usr/local/bin
+  file:
+    src: /opt/go/bin/go
+    dest: /usr/local/bin/go
+    owner: root
+    group: root
+    state: link
 
 - name: Clone etcd
   git:
@@ -32,9 +33,16 @@
   command: './build'
   args: 
     chdir: '/opt/etcd'
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/usr/local/go/bin"
 
-- name: Add etcd to path
-  command: 'export PATH=$PATH:/opt/etcd/bin'
+- name: Symlink Go into /usr/local/bin
+  file:
+    src: /opt/etcd/bin/etcd
+    dest: /usr/local/bin/etcd
+    owner: root
+    group: root
+    state: link
 
 - name: Create etcd config directory
   file: path={{ etcd_conf_dir }} state=directory
