@@ -6,8 +6,9 @@
     state: latest
     update_cache: yes
   with_items:
-    -  kubelet
-    -  kubernetes-cni
+    -  kubernetes-node
+    -  kubernetes-client
+    -  kubernetes
   register: nodepackage
 
 - name: add kubelet service file
@@ -47,7 +48,7 @@
   register: ssl_dir
 
 - name: copy openssl
-  when: openssl_cert|changed
+#  when: openssl_cert|changed
   template: src="openssl.conf.j2" dest={{ kube_config_dir }}/pki/openssl.conf
   register: openssl_config
 

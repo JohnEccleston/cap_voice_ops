@@ -265,7 +265,7 @@ resource "aws_iam_instance_profile" "voiceOpsNodesInstanceProfile" {
 # K8 Master launch config
 resource "aws_launch_configuration" "voiceOpsMaster" {
     name                        = "voiceOpsMaster"
-    image_id                    = "ami-7d50491b"
+    image_id                    = "ami-061b1560"
     instance_type               = "t2.medium"
     key_name                    = "voiceOpsk8s"
     iam_instance_profile        = "${aws_iam_instance_profile.voiceOpsMastersInstanceProfile.id}"
@@ -286,7 +286,7 @@ resource "aws_launch_configuration" "voiceOpsMaster" {
 
 resource "aws_launch_configuration" "voiceOpsNode" {
     name                        = "voiceOpsNode"
-    image_id                    = "ami-7d50491b"
+    image_id                    = "ami-061b1560"
     instance_type               = "t2.large"
     key_name                    = "voiceOpsk8s"
     iam_instance_profile        = "${aws_iam_instance_profile.voiceOpsNodesInstanceProfile.id}"

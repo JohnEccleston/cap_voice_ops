@@ -1,14 +1,14 @@
 [etcd]
-34.251.65.134
-52.209.132.210
-52.212.100.180
+34.249.33.90
+52.50.122.72
+52.211.156.148
 [masters]
-34.251.65.134
-52.209.132.210
-52.212.100.180
+34.249.33.90
+52.50.122.72
+52.211.156.148
 [sslhost]
-54.77.231.116 ansible_ssh_private_key_file=/home/ec2-user/cap_voice_ops/ansible/voiceOpsBastion.pem
-[node]
-34.250.26.146
-34.250.100.164
-52.18.26.34
+54.77.231.116 ansible_user=ec2-user ansible_ssh_private_key_file=/home/ec2-user/cap_voice_ops/ansible/voiceOpsBastion.pem
+[nodes]
+34.253.20.27
+54.76.129.148
+54.76.175.169

@@ -1,48 +1,9 @@
 ---
-- name: Install etcd dependencies
-  yum: name={{item}} state=latest
-  with_items:
-  - 'git'
-
-- name: Make sure opt exists
-  file:
-    path: /opt
-    state: directory
-    mode: 0755
-
-- name: Download and unpack Go
-  unarchive:
-    src: 'https://storage.googleapis.com/golang/go1.8.3.linux-amd64.tar.gz'
-    dest: /opt
-    remote_src: True
-
-- name: Symlink Go into /usr/local/bin
-  file:
-    src: /opt/go/bin/go
-    dest: /usr/local/bin/go
-    owner: root
-    group: root
-    state: link
-
-- name: Clone etcd
-  git:
-    repo: 'https://github.com/coreos/etcd'
-    dest: '/opt/etcd'
-
-- name: build etcd
-  command: './build'
-  args: 
-    chdir: '/opt/etcd'
-  environment:
-    PATH: "{{ ansible_env.PATH }}:/usr/local/go/bin"
-
-- name: Symlink Go into /usr/local/bin
-  file:
-    src: /opt/etcd/bin/etcd
-    dest: /usr/local/bin/etcd
-    owner: root
-    group: root
-    state: link
+- name: Install etcd
+  when: ansible_os_family == "RedHat"
+  yum:
+    name: etcd
+    state: latest
 
 - name: Create etcd config directory
   file: path={{ etcd_conf_dir }} state=directory

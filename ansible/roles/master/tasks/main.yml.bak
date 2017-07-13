@@ -6,9 +6,9 @@
     state: latest
     update_cache: yes
   with_items:
-    -  kubernetes-master
-    -  kubernetes-client
-    -  kubernetes
+    -  kubectl
+    -  kubelet
+    -  kubernetes-cni
   register: masterpackage
 
 - name: create kubernetes config directory
