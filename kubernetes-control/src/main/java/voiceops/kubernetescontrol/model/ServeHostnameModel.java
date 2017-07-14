@@ -15,7 +15,7 @@ public class ServeHostnameModel {
 
   Deployment deployment = new Deployment();
 
-  public ServeHostnameModel(String name) {
+  public ServeHostnameModel(String name, int replicas) {
 
     ObjectMeta meta = new ObjectMeta();
     meta.setName(name);
@@ -47,7 +47,7 @@ public class ServeHostnameModel {
     podTemplateSpec.setSpec(podSpec);
 
     DeploymentSpec deploymentSpec = new DeploymentSpec();
-    deploymentSpec.setReplicas(3);
+    deploymentSpec.setReplicas(replicas);
     deploymentSpec.setRevisionHistoryLimit(10);
     deploymentSpec.setTemplate(podTemplateSpec);
 

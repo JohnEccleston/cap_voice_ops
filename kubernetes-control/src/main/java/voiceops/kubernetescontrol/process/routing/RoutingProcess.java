@@ -1,23 +1,23 @@
 package voiceops.kubernetescontrol.process.routing;
 
-import com.amazon.speech.speechlet.SpeechletResponse;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.route53.AmazonRoute53;
 import com.amazonaws.services.route53.AmazonRoute53ClientBuilder;
 import com.amazonaws.services.route53.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import voiceops.kubernetescontrol.KubernetesControlSpeechlet;
 import voiceops.kubernetescontrol.model.CallResponse;
+import voiceops.kubernetescontrol.process.speech.SpeechProcess;
 
 /**
  * Created by johneccleston on 12/07/2017.
  */
-public class RoutingProcess extends KubernetesControlSpeechlet {
+public class RoutingProcess {
 
   private static final Logger log = LoggerFactory.getLogger(RoutingProcess.class);
+  //private SpeechProcess speechProcess = new SpeechProcess();
 
-  public CallResponse createRouting(String ip, String hostname ) {
+  public CallResponse route(ChangeAction action, String ip, String hostname ) {
 
     CallResponse callResponse;
 
@@ -44,7 +44,7 @@ public class RoutingProcess extends KubernetesControlSpeechlet {
         route53.changeResourceRecordSets(new ChangeResourceRecordSetsRequest()
             .withHostedZoneId("Z1EEC6GA7MB3OO")
             .withChangeBatch( new ChangeBatch()
-                .withChanges( new Change(ChangeAction.CREATE,
+                .withChanges( new Change(action,
                     new ResourceRecordSet(resourceName, rrType).withTTL(60L)
                         .withResourceRecords(
                             new ResourceRecord(resourceValue))))));
@@ -54,10 +54,10 @@ public class RoutingProcess extends KubernetesControlSpeechlet {
       log.error("Exception when creating routing");
       log.error(ex.getMessage());
       ex.printStackTrace();
-      callResponse = new CallResponse(getTellSpeechletResponse("Problem when talking to kubernetes API."), false);
+      callResponse = new CallResponse(SpeechProcess.getTellSpeechletResponse("Problem when talking to kubernetes API."), false);
       return callResponse;
     }
-    callResponse = new CallResponse(getTellSpeechletResponse("Routing has been created"), true);
+    callResponse = new CallResponse(SpeechProcess.getTellSpeechletResponse("Routing has been created"), true);
     return callResponse;
   }
 }

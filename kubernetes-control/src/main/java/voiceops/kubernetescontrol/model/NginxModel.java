@@ -15,7 +15,7 @@ public class NginxModel {
 
   Deployment deployment = new Deployment();
 
-  public NginxModel(String name) {
+  public NginxModel(String name, int replicas) {
 
     ObjectMeta meta = new ObjectMeta();
     meta.setName(name);
@@ -49,7 +49,7 @@ public class NginxModel {
     podTemplateSpec.setSpec(podSpec);
 
     DeploymentSpec deploymentSpec = new DeploymentSpec();
-    deploymentSpec.setReplicas(3);
+    deploymentSpec.setReplicas(replicas);
     deploymentSpec.setRevisionHistoryLimit(10);
     deploymentSpec.setTemplate(podTemplateSpec);
 

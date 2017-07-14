@@ -15,7 +15,7 @@ public class CapgeminiModel {
 
   Deployment deployment = new Deployment();
 
-  public CapgeminiModel(String name) {
+  public CapgeminiModel(String name, int replicas) {
 
     ObjectMeta meta = new ObjectMeta();
     meta.setName(name);
@@ -49,7 +49,7 @@ public class CapgeminiModel {
     podTemplateSpec.setSpec(podSpec);
 
     DeploymentSpec deploymentSpec = new DeploymentSpec();
-    deploymentSpec.setReplicas(3);
+    deploymentSpec.setReplicas(replicas);
     deploymentSpec.setRevisionHistoryLimit(10);
     deploymentSpec.setTemplate(podTemplateSpec);
 
