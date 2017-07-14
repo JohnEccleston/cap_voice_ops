@@ -10,9 +10,9 @@ flannel_dir: /etc/sysconfig
 
 # Local IPs, should get this from facts/terraform
 
-etcd_ips: ['172.20.1.144','172.20.2.241','172.20.0.178']
-master_ips: ['172.20.1.144','172.20.2.241','172.20.0.178']
-node_ips: ['172.20.0.14','172.20.1.5','172.20.2.93']
+etcd_ips: ['172.20.2.103','172.20.1.180','172.20.0.100']
+master_ips: ['172.20.2.103','172.20.1.180','172.20.0.100']
+node_ips: ['172.20.2.247','172.20.0.244','172.20.1.186']
 
 # Images and other variable
 api_image: gcr.io/google_containers/kube-apiserver-amd64:v1.6.6
@@ -38,15 +38,15 @@ node_key: /etc/kubernetes/pki/node-key.pem
 # API secure port and api loadbalancer IP
 # If not using LB pick an API server IP address
 api_secure_port: 443
-api_lb_ip: https://172.20.1.144
-lb_ip: 172.20.1.144
+api_lb_ip: 'https://{{etcd_ips.0}}'
+lb_ip: '{{etcd_ips.0}}'
 
 # Kubeconfig file 
 kubeletconfig: /etc/kubernetes/kubeletconfig
 kubeadminconfig: /etc/kubernetes/kubeadminconfig
 
 # Master fqdn names - required to create ssl certificate
-masters_fqdn: ['master1', 'master2', 'master3']
+masters_fqdn: ['ec2-54-72-225-72.eu-west-1.compute.amazonaws.com', 'ec2-34-252-46-209.eu-west-1.compute.amazonaws.com', 'ec2-52-17-215-75.eu-west-1.compute.amazonaws.com']
 
 # Cluster dns name
 cluster_name: voiceopsk8s
@@ -75,7 +75,7 @@ dns_replicas: 1
 weave_net: false # set true only if cluster is fully operation and running
 # if true then set following
 weaveui_port: 90
-weaveui_ip: 172.20.1.144 # it should be one of cluster node IP
+weaveui_ip: '{{etcd_ips.0}}' # it should be one of cluster node IP
 
 #flannel network # only one network plugin should be enable either weave or flannel
 flannel: true
@@ -91,15 +91,15 @@ cluster_monitoring: false # set true only if cluster is fully operation and runn
 #- if true then set following
 heapster_ip: 100.64.0.11 # it should be from cluster service_ip_range
 heapster_port: 80
-grafana_ip: 172.20.1.144 # it should be one of cluster node IP
+grafana_ip: '{{etcd_ips.0}}' # it should be one of cluster node IP
 grafana_port: 100
-influx_ip: 172.20.1.144 # it should be one of cluster node IP
+influx_ip: '{{etcd_ips.0}}' # it should be one of cluster node IP
 influx_port: 8086
 
 # Turn to false to disable the kube-dash addon for this cluster
 kube_dash: true  # set true only if cluster is fully operation and running
 #- if true then set following
-kube_dash_ip: 172.20.1.144 # it should be one of cluster node IP
+kube_dash_ip: '{{etcd_ips.0}}' # it should be one of cluster node IP
 kube_dash_port: 80
 
 #- setup haproxy for loadbalancing
