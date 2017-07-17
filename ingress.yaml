@@ -1,0 +1,47 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: kibana-ingress
+  namespace: kube-system
+  annotations:
+    dns.alpha.kubernetes.io/external: "true"
+spec:
+  rules:
+  - host: kibana-logging.k8sdemo.capademy.com
+    http:
+      paths:
+      - backend:
+          serviceName: kibana-logging
+          servicePort: 5601
+
+  - host: elasticsearch.k8sdemo.capademy.com
+    http:
+      paths:
+      - backend:
+          serviceName: elasticsearch-logging
+          servicePort: 9200
+        path: /
+
+  - host: hmrc1.k8sdemo.capademy.com
+    http:
+      paths:
+      - backend:
+          serviceName: hmrc1
+          servicePort: 8899
+        path: /
+
+  - host: hmrc2.k8sdemo.capademy.com
+    http:
+      paths:
+      - backend:
+          serviceName: hmrc2
+          servicePort: 8888
+        path: /
+
+  - host: monitoring-grafana.k8sdemo.capademy.com
+    http:
+      paths:
+      - backend:
+          serviceName: monitoring-grafana
+          servicePort: 80
+        path: /
