@@ -219,21 +219,22 @@ public class KubernetesControlSpeechlet implements Speechlet {
     	//log.info("nameSpace = " + serviceResponse.getDeployment().getMetadata().getNamespace());
     	log.info("image = " + serviceResponse.getDeployment().getSpec().getTemplate().getSpec().getContainers().get(0).getImage());
     	
-    	CallResponse response = deploymentProcess.deploy(client, toHost, toToken, podName, nameSpace, serviceResponse.getDeployment().getSpec().getTemplate().getSpec().getContainers().get(0).getImage(), serviceResponse.getDeployment().getSpec().getReplicas());
+    	//CallResponse response = deploymentProcess.deploy(client, toHost, toToken, podName, nameSpace, serviceResponse.getDeployment().getSpec().getTemplate().getSpec().getContainers().get(0).getImage(), serviceResponse.getDeployment().getSpec().getReplicas());
     	
+    	CallResponse response = deploymentProcess.migrate(client, toHost, toToken, podName, nameSpace, serviceResponse.getDeployment().getSpec().getTemplate().getSpec().getContainers().get(0).getImage(), serviceResponse.getDeployment().getSpec().getReplicas(), fromHost, fromToken);
     	//log.info("speech = " + speech.getOutputSpeech().toString());
     	
     	if(!response.getSuccess()) {
     		return SpeechProcess.getTellSpeechletResponse(String.format("Failed to deploy %s to %s on %s. Migration has failed", podName, nameSpace, to));
     	}
     	
-    	response = deploymentProcess.deleteDeployment(client, fromHost, fromToken, podName, nameSpace);
-    	
-    	//log.info("speech = " + speech.getOutputSpeech().toString());
-    	
-    	if(!response.getSuccess()) {
-    		return SpeechProcess.getTellSpeechletResponse(String.format("Failed to delete %s from %s on %. Migration has not fully completed", podName, nameSpace, to));
-    	}
+//    	response = deploymentProcess.deleteDeployment(client, fromHost, fromToken, podName, nameSpace);
+//    	
+//    	//log.info("speech = " + speech.getOutputSpeech().toString());
+//    	
+//    	if(!response.getSuccess()) {
+//    		return SpeechProcess.getTellSpeechletResponse(String.format("Failed to delete %s from %s on %. Migration has not fully completed", podName, nameSpace, to));
+//    	}
     	
     	return SpeechProcess.getTellSpeechletResponse(String.format("Migrated %s from %s to %s", podName, from, to));
 	}
