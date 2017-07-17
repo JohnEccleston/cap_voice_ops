@@ -1,7 +1,9 @@
 package voiceops.kubernetescontrol.process.routing;
 
+import com.amazonaws.AmazonWebServiceResponse;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.route53.AmazonRoute53;
+import com.amazonaws.services.route53.AmazonRoute53Client;
 import com.amazonaws.services.route53.AmazonRoute53ClientBuilder;
 import com.amazonaws.services.route53.model.*;
 import org.slf4j.Logger;
@@ -41,23 +43,32 @@ public class RoutingProcess {
         .build();
 
     try {
-        route53.changeResourceRecordSets(new ChangeResourceRecordSetsRequest()
-            .withHostedZoneId("Z1EEC6GA7MB3OO")
-            .withChangeBatch( new ChangeBatch()
-                .withChanges( new Change(action,
-                    new ResourceRecordSet(resourceName, rrType).withTTL(60L)
-                        .withResourceRecords(
-                            new ResourceRecord(resourceValue))))));
+      route53.changeResourceRecordSets(new ChangeResourceRecordSetsRequest()
+          .withHostedZoneId("Z1EEC6GA7MB3OO")
+          .withChangeBatch(new ChangeBatch()
+              .withChanges(new Change(action,
+                  new ResourceRecordSet(resourceName, rrType).withTTL(60L)
+                      .withResourceRecords(
+                          new ResourceRecord(resourceValue))))));
 
-
+    } catch (NoSuchHealthCheckException |  NoSuchHostedZoneException nshe) {
+        log.error("No routing found to delete, continuing as normal");
+        callResponse = new CallResponse(SpeechProcess.getTellSpeechletResponse(
+            "No routing found to delete")
+            , true);
+        return callResponse;
     } catch(Exception ex) {
-      log.error("Exception when creating routing");
+      log.error(String.format("Exception when processing routing, call to %s failed", action.toString()));
       log.error(ex.getMessage());
       ex.printStackTrace();
-      callResponse = new CallResponse(SpeechProcess.getTellSpeechletResponse("Problem when talking to kubernetes API."), false);
+      callResponse = new CallResponse(SpeechProcess.getTellSpeechletResponse(
+          String.format("Problem when talking to kubernetes API while trying to %s routing", action.toString()))
+          , false);
       return callResponse;
     }
-    callResponse = new CallResponse(SpeechProcess.getTellSpeechletResponse("Routing has been created"), true);
+    callResponse = new CallResponse(SpeechProcess.getTellSpeechletResponse(
+        String.format("Call to %s routing has been processed successfully", action.toString()))
+        , true);
     return callResponse;
   }
 }

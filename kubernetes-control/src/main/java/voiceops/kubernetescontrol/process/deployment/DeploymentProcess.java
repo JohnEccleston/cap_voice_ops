@@ -230,7 +230,8 @@ public class DeploymentProcess {
           if(serviceDetails.getSuccess()) {
         	  log.info("Successfully got service details for " + podName);
         	  log.info("Creating routes for " + podName);
-            CallResponse routingResponse = routingProcess.route(ChangeAction.CREATE, serviceDetails.getIp(), serviceDetails.getHost());
+//            CallResponse routingResponse = routingProcess.route(ChangeAction.CREATE, serviceDetails.getIp(), serviceDetails.getHost());
+            CallResponse routingResponse = routingProcess.route(ChangeAction.UPSERT, serviceDetails.getIp(), serviceDetails.getHost());
             if(routingResponse.getSuccess()) {
             	log.info("Successfully created route for " + podName);
               //return response.getSpeechletResponse();
