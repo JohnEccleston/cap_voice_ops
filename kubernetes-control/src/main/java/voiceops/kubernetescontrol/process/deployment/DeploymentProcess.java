@@ -12,6 +12,8 @@ import io.fabric8.kubernetes.api.model.DeleteOptions;
 import io.fabric8.kubernetes.api.model.extensions.Deployment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import voiceops.kubernetescontrol.ServiceThread;
 import voiceops.kubernetescontrol.model.*;
 import voiceops.kubernetescontrol.process.routing.RoutingProcess;
 import voiceops.kubernetescontrol.process.service.ServiceProcess;
@@ -188,8 +190,95 @@ public class DeploymentProcess {
       CallResponse callResponse = new CallResponse(SpeechProcess.getTellSpeechletResponse(podName + " has been deleted from " + nameSpace), true);
       return callResponse;
     }
+  
+  public CallResponse migrate(Client client, String host, String token, String podName, String nameSpace, String deployType, int replicas, String fromHost, String fromToken) {
+	  try {
+	      Deployment dep;
+	      podName = podName.toLowerCase();
+	      nameSpace = nameSpace.toLowerCase();
+	      deployType = deployType.toLowerCase();
 
-  public CallResponse deploy(Client client, String host, String token, String podName, String nameSpace, String deployType, int replicas) {
+	      log.info("deployType = " + deployType);
+
+	      if (deployType.contains("ngin")) {
+	        NginxModel nginxModel = new NginxModel(podName, replicas);
+	        dep = nginxModel.getDeployment();
+	        CallResponse response = createDeployment(client, host, token, podName, nameSpace, dep);
+	        if (!response.getSuccess()) {
+	          //return response.getSpeechletResponse();
+	        	return response;
+	        }
+	        CallResponse  serviceResponse = serviceProcess.createService(client, host, token, podName, nameSpace);
+	      } else if (deployType.contains("gemini") || deployType.contains("dougthomson")) {
+	    	log.info("Capgemini / Doug deployment");
+	        CapgeminiModel capgeminiModel = new CapgeminiModel(podName, replicas);
+	        dep = capgeminiModel.getDeployment();
+	        log.info("Creating deployment " + podName);
+	        CallResponse response = createDeployment(client, host, token, podName, nameSpace, dep);       
+	        if (!response.getSuccess()) {
+	        	log.info("Failed to create deployment " + podName);
+	          //return response.getSpeechletResponse();
+	        	return response;
+	        }
+	        log.info("Successfully Created deployment " + podName);
+	        log.info("Creating creating service for " + podName);
+	        CallResponse serviceResponse = serviceProcess.createService(client, host, token, podName, nameSpace);
+	        if(serviceResponse.getSuccess()) {
+	        log.info("Successfully Created service for " + podName);
+	        
+	        ServiceThread thread = new ServiceThread(serviceProcess, routingProcess, client, 
+	        		host, token, podName, nameSpace, this, fromHost, fromToken);
+	        
+	        (new Thread(thread)).start();
+	        //log.info("Retrieving service details for " + podName);
+	          //CallResponse serviceDetails = serviceProcess.getService(client, host, token, podName, nameSpace);
+	          //if(serviceDetails.getSuccess()) {
+	        	  //log.info("Successfully got service details for " + podName);
+	        	  //log.info("Creating routes for " + podName);
+	            //CallResponse routingResponse = routingProcess.route(ChangeAction.CREATE, serviceDetails.getIp(), serviceDetails.getHost());
+	            //if(routingResponse.getSuccess()) {
+	            	//log.info("Successfully created route for " + podName);
+	              //return response.getSpeechletResponse();
+	            	//return response;
+	           // } else {
+	            	//log.error("Failed to create route for " + podName);
+	              //return routingResponse.getSpeechletResponse();
+	            	//return routingResponse;
+	            //}
+	          //}
+	        //} else {
+	        	//log.error("Failed to get service for " + podName);
+	          //return serviceResponse.getSpeechletResponse();
+	        	//return serviceResponse;
+	        }
+	      } else if (deployType.equalsIgnoreCase("serve")) {
+	        ServeHostnameModel serveHostnameModel = new ServeHostnameModel(podName, replicas);
+	        dep = serveHostnameModel.getDeployment();
+	        createDeployment(client, host, token, podName, nameSpace, dep);
+	      } else if (deployType.equalsIgnoreCase("postgres")) {
+	        PostgresModel postgresModel = new PostgresModel(podName, replicas);
+	        dep = postgresModel.getDeployment();
+	        createDeployment(client, host, token, podName, nameSpace, dep);
+	      } else {
+	        //return SpeechProcess.getTellSpeechletResponse(String.format("No images found for %s, please check and try again", deployType));
+	    	  CallResponse response = new CallResponse(SpeechProcess.getTellSpeechletResponse(String.format("No images found for %s, please check and try again", deployType)), false);
+	    	  return response;
+	      }
+
+	    } catch (Exception ex) {
+	      log.error("Exception when calling deploy deployment api");
+	      log.error(ex.getMessage());
+	      ex.printStackTrace();
+	      //return SpeechProcess.getTellSpeechletResponse("Problem when talking to kubernetes API. No deployment was made.");
+	      CallResponse response = new CallResponse(SpeechProcess.getTellSpeechletResponse("Problem when talking to kubernetes API. No deployment was made."), false);
+	      return response;
+	    }
+	    //return SpeechProcess.getTellSpeechletResponse(String.format("%s has been deployed to %s", podName, nameSpace));
+	    CallResponse response = new CallResponse(SpeechProcess.getTellSpeechletResponse(String.format("%s has been deployed to %s", podName, nameSpace)), true);
+	    return response;
+	  }
+
+  public CallResponse deploy(Client client, String host, String token, String podName, String nameSpace, String deployType, int replicas){//, String fromHost, String fromToken) {
 
 	
     try {
@@ -224,28 +313,31 @@ public class DeploymentProcess {
         log.info("Creating creating service for " + podName);
         CallResponse serviceResponse = serviceProcess.createService(client, host, token, podName, nameSpace);
         if(serviceResponse.getSuccess()) {
-        log.info("Successfully Created service for " + podName);	
-        log.info("Retrieving service details for " + podName);
-          CallResponse serviceDetails = serviceProcess.getService(client, host, token, podName, nameSpace);
-          if(serviceDetails.getSuccess()) {
-        	  log.info("Successfully got service details for " + podName);
-        	  log.info("Creating routes for " + podName);
-//            CallResponse routingResponse = routingProcess.route(ChangeAction.CREATE, serviceDetails.getIp(), serviceDetails.getHost());
-            CallResponse routingResponse = routingProcess.route(ChangeAction.UPSERT, serviceDetails.getIp(), serviceDetails.getHost());
-            if(routingResponse.getSuccess()) {
-            	log.info("Successfully created route for " + podName);
+        log.info("Successfully Created service for " + podName);
+        ServiceThread thread = new ServiceThread(serviceProcess, routingProcess, client, 
+        		host, token, podName, nameSpace, null, null, null);
+        
+        (new Thread(thread)).start();
+        //log.info("Retrieving service details for " + podName);
+          //CallResponse serviceDetails = serviceProcess.getService(client, host, token, podName, nameSpace);
+          //if(serviceDetails.getSuccess()) {
+        	  //log.info("Successfully got service details for " + podName);
+        	  //log.info("Creating routes for " + podName);
+            //CallResponse routingResponse = routingProcess.route(ChangeAction.CREATE, serviceDetails.getIp(), serviceDetails.getHost());
+            //if(routingResponse.getSuccess()) {
+            	//log.info("Successfully created route for " + podName);
               //return response.getSpeechletResponse();
-            	return response;
-            } else {
-            	log.error("Failed to create route for " + podName);
+            	//return response;
+           // } else {
+            	//log.error("Failed to create route for " + podName);
               //return routingResponse.getSpeechletResponse();
-            	return routingResponse;
-            }
-          }
-        } else {
-        	log.error("Failed to create service for " + podName);
+            	//return routingResponse;
+            //}
+          //}
+        //} else {
+        	//log.error("Failed to get service for " + podName);
           //return serviceResponse.getSpeechletResponse();
-        	return serviceResponse;
+        	//return serviceResponse;
         }
       } else if (deployType.equalsIgnoreCase("serve")) {
         ServeHostnameModel serveHostnameModel = new ServeHostnameModel(podName, replicas);
