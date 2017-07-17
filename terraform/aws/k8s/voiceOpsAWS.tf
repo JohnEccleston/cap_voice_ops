@@ -155,11 +155,38 @@ resource "aws_security_group_rule" "all-node-to-node" {
   protocol                 = "-1"
 }
 
-resource "aws_security_group_rule" "https-external-to-master-0-0-0-0--0" {
+resource "aws_security_group_rule" "all-nodes-to-master" {
+  type                     = "ingress"
+  security_group_id        = "${aws_security_group.voiceOpsMastersSg.id}"
+  source_security_group_id = "${aws_security_group.voiceOpsNodesSg.id}"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+}
+
+resource "aws_security_group_rule" "https-external-to-master-443" {
   type              = "ingress"
   security_group_id = "${aws_security_group.voiceOpsMastersSg.id}"
   from_port         = 443
   to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "https-external-to-master-22" {
+  type              = "ingress"
+  security_group_id = "${aws_security_group.voiceOpsMastersSg.id}"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "https-external-to-nodes-22" {
+  type              = "ingress"
+  security_group_id = "${aws_security_group.voiceOpsNodesSg.id}"
+  from_port         = 22
+  to_port           = 22
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
 }
@@ -180,24 +207,6 @@ resource "aws_security_group_rule" "node-egress" {
   to_port           = 0
   protocol          = "-1"
   cidr_blocks       = ["0.0.0.0/0"]
-}
-
-resource "aws_security_group_rule" "node-to-master-tcp-4194" {
-  type                     = "ingress"
-  security_group_id        = "${aws_security_group.voiceOpsMastersSg.id}"
-  source_security_group_id = "${aws_security_group.voiceOpsNodesSg.id}"
-  from_port                = 4194
-  to_port                  = 4194
-  protocol                 = "tcp"
-}
-
-resource "aws_security_group_rule" "node-to-master-tcp-443" {
-  type                     = "ingress"
-  security_group_id        = "${aws_security_group.voiceOpsMastersSg.id}"
-  source_security_group_id = "${aws_security_group.voiceOpsNodesSg.id}"
-  from_port                = 443
-  to_port                  = 443
-  protocol                 = "tcp"
 }
 
 # IAM Role/Policy Setup
@@ -247,9 +256,9 @@ resource "aws_iam_instance_profile" "voiceOpsNodesInstanceProfile" {
 # K8 Master launch config
 resource "aws_launch_configuration" "voiceOpsMaster" {
     name                        = "voiceOpsMaster"
-    image_id                    = "ami-7d50491b"
+    image_id                    = "ami-061b1560"
     instance_type               = "t2.medium"
-    key_name                    = "demo"
+    key_name                    = "voiceOpsk8s"
     iam_instance_profile        = "${aws_iam_instance_profile.voiceOpsMastersInstanceProfile.id}"
     security_groups             = ["${aws_security_group.voiceOpsMastersSg.id}"]
     associate_public_ip_address = true
@@ -268,9 +277,9 @@ resource "aws_launch_configuration" "voiceOpsMaster" {
 
 resource "aws_launch_configuration" "voiceOpsNode" {
     name                        = "voiceOpsNode"
-    image_id                    = "ami-7d50491b"
+    image_id                    = "ami-061b1560"
     instance_type               = "t2.large"
-    key_name                    = "demo"
+    key_name                    = "voiceOpsk8s"
     iam_instance_profile        = "${aws_iam_instance_profile.voiceOpsNodesInstanceProfile.id}"
     security_groups             = ["${aws_security_group.voiceOpsNodesSg.id}"]
     associate_public_ip_address = true

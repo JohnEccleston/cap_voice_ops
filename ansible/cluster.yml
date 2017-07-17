@@ -1,0 +1,60 @@
+---
+# This playbook deploys a kubernetes cluster with the default addons.
+
+# install ssl cert
+- hosts: sslhost
+  become: true
+  roles:
+     -  sslcert
+  tags:
+     -  sslcert
+
+# Install etcd
+- hosts: etcd
+  become: true
+  roles:
+   -   etcd
+  tags:
+    - etcd
+
+# Install flannel
+- hosts:
+  - masters
+  - nodes
+  become: true
+  roles:
+   - flannel
+
+# Install docker
+- hosts:
+  - masters
+  - nodes
+  become: true
+  roles:
+    - docker
+  tags:
+    - docker
+
+# install haproxy
+#- hosts: masters
+#  become: true
+#  roles:
+#    - haproxy
+#  tags:
+#    - haproxy
+
+# install kubernetes master services
+- hosts: masters
+  become: true
+  roles:
+    - master
+  tags:
+    - master
+
+# install kubernetes on the node
+- hosts: nodes
+  become: true
+  roles:
+    - node
+  tags:
+    - node
