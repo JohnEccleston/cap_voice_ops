@@ -64,7 +64,25 @@ public class ServiceThread implements Runnable {
         }
         
         if(deploymentProcess != null) {
-        	deploymentProcess.deleteDeployment(client, fromHost, fromToken, podName, nameSpace);
+
+        	//Added sleep to avoid any down time.
+					try {
+						Thread.sleep(10000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+
+					deploymentProcess.deleteDeployment(client, fromHost, fromToken, podName, nameSpace);
+
+					CallResponse serviceResponse = serviceProcess.getService(client, fromHost, fromToken, podName, nameSpace);
+
+					if(serviceResponse.getSuccess()) {
+						CallResponse routingResponse = routingProcess.route(ChangeAction.DELETE, serviceResponse.getIp(), serviceResponse.getHost());
+					}
+
+					if(serviceResponse.getSuccess()) {
+						CallResponse deleteResponse = serviceProcess.deleteService(client, fromHost, fromToken, podName, nameSpace);
+					}
         }
         log.info("Service thread finished!!!!!!");	
     }

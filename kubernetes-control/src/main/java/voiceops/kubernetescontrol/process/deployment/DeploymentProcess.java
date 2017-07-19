@@ -224,7 +224,10 @@ public class DeploymentProcess {
 	        log.info("Creating creating service for " + podName);
 	        CallResponse serviceResponse = serviceProcess.createService(client, host, token, podName, nameSpace);
 	        if(serviceResponse.getSuccess()) {
-	        log.info("Successfully Created service for " + podName);
+						log.info("Successfully Created service for " + podName);
+					} else {
+	        	log.info("Failed to create the services for " + podName + " as it aready exists");
+					}
 	        
 	        ServiceThread thread = new ServiceThread(serviceProcess, routingProcess, client, 
 	        		host, token, podName, nameSpace, this, fromHost, fromToken);
@@ -250,7 +253,7 @@ public class DeploymentProcess {
 	        	//log.error("Failed to get service for " + podName);
 	          //return serviceResponse.getSpeechletResponse();
 	        	//return serviceResponse;
-	        }
+//	        }
 	      } else if (deployType.equalsIgnoreCase("serve")) {
 	        ServeHostnameModel serveHostnameModel = new ServeHostnameModel(podName, replicas);
 	        dep = serveHostnameModel.getDeployment();

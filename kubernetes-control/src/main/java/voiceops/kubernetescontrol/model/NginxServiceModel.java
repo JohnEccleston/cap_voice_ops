@@ -25,6 +25,7 @@ public class NginxServiceModel {
     ServicePort servicePort = new ServicePort();
     servicePort.setName("tcp-80-80-"+name);
     servicePort.setPort(80);
+    servicePort.setNodePort(31400);
 
     List<ServicePort> servicePorts = new ArrayList<ServicePort>();
     servicePorts.add(servicePort);

@@ -236,7 +236,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
 //    		return SpeechProcess.getTellSpeechletResponse(String.format("Failed to delete %s from %s on %. Migration has not fully completed", podName, nameSpace, to));
 //    	}
     	
-    	return SpeechProcess.getTellSpeechletResponse(String.format("Migrated %s from %s to %s", podName, from, to));
+    	return SpeechProcess.getTellSpeechletResponse(String.format("Migration of  %s from %s to %s is in progress, call get Status to check", podName, from, to));
 	}
 
 	private SpeechletResponse deployDeployment(Intent intent, Session session) {
@@ -301,23 +301,25 @@ public class KubernetesControlSpeechlet implements Speechlet {
 
 	}
     
-	private SpeechletResponse deleteAfterConfirm(String nameSpace, String podName) {
+	private SpeechletResponse deleteAfterConfirm(String nameSpace, String podName, Session session) {
 
 		SpeechletResponse response = deploymentProcess.deleteDeployment(client, host, token, podName, nameSpace).getSpeechletResponse();
 
 		CallResponse serviceResponse = serviceProcess.getService(client, host, token, podName, nameSpace);
 
-		if(serviceResponse.getSuccess()) {
-			CallResponse routingResponse = routingProcess.route(ChangeAction.DELETE, serviceResponse.getIp(), serviceResponse.getHost());
-		} else {
-			return serviceResponse.getSpeechletResponse();
-		}
+		if(session.getAttribute("provider").toString().equalsIgnoreCase("aws")) {
+			if (serviceResponse.getSuccess()) {
+				CallResponse routingResponse = routingProcess.route(ChangeAction.DELETE, serviceResponse.getIp(), serviceResponse.getHost());
+			} else {
+				return serviceResponse.getSpeechletResponse();
+			}
 
-		if(serviceResponse.getSuccess()) {
-			CallResponse deleteResponse = serviceProcess.deleteService(client, host, token, podName, nameSpace);
+			if (serviceResponse.getSuccess()) {
+				CallResponse deleteResponse = serviceProcess.deleteService(client, host, token, podName, nameSpace);
 
-			if(!deleteResponse.getSuccess()) {
-				return deleteResponse.getSpeechletResponse();
+				if (!deleteResponse.getSuccess()) {
+					return deleteResponse.getSpeechletResponse();
+				}
 			}
 		}
 		return response;
@@ -396,7 +398,7 @@ Map<String, Object> map = session.getAttributes();
 		else if(map.containsKey("delete")) {
 			String deleteStr = (String)session.getAttribute("delete");
 			String[] deleteParams = deleteStr.split(":");
-			return deleteAfterConfirm(deleteParams[0], deleteParams[1]);
+			return deleteAfterConfirm(deleteParams[0], deleteParams[1], session);
 		}
 		return SpeechProcess.getTellSpeechletResponse("Sorry, I'm not sure what action you are trying to confirm.");
 	}
