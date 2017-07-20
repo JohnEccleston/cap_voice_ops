@@ -67,7 +67,7 @@ public class ServiceThread implements Runnable {
 
         	//Added sleep to avoid any down time.
 					try {
-						Thread.sleep(10000);
+						Thread.sleep(12000);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
