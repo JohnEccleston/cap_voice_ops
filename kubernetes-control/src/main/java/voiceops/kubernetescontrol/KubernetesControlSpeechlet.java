@@ -54,7 +54,7 @@ import java.util.Map;
 public class KubernetesControlSpeechlet implements Speechlet {
     private static final Logger log = LoggerFactory.getLogger(KubernetesControlSpeechlet.class);
     
-    Client client = Client.create();
+    Client client; //= Client.create();
     TrustManager[] trustAllCerts;
     SSLContext sc;
     HostnameVerifier allHostsValid;
@@ -551,6 +551,7 @@ Map<String, Object> map = session.getAttributes();
 					};
 					
 					config.getProperties().put(HTTPSProperties.PROPERTY_HTTPS_PROPERTIES, new HTTPSProperties(allHostsValid, ProviderSslContextFactory.getSslContext(cloudProvider, null).getSslContext()));
+					client = Client.create(config);
          }
          catch(Exception ex) {
          	log.error("Failure getting creds! " + ex.getMessage());
