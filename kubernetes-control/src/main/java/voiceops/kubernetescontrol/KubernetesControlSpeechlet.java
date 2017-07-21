@@ -23,10 +23,17 @@ import com.amazonaws.services.s3.model.S3Object;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.jersey.api.client.Client;
+import com.sun.jersey.api.client.config.ClientConfig;
+import com.sun.jersey.api.client.config.DefaultClientConfig;
 import com.sun.jersey.api.client.filter.HTTPBasicAuthFilter;
+import com.sun.jersey.client.urlconnection.HTTPSProperties;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
+
+import voiceops.kubernetescontrol.auth.ProviderSslContext;
+import voiceops.kubernetescontrol.auth.ProviderSslContextFactory;
 import voiceops.kubernetescontrol.model.*;
 import voiceops.kubernetescontrol.process.deployment.DeploymentProcess;
 import voiceops.kubernetescontrol.process.routing.RoutingProcess;
@@ -79,7 +86,7 @@ public class KubernetesControlSpeechlet implements Speechlet {
             throws SpeechletException {
         log.info("onSessionStarted requestId={}, sessionId={}", request.getRequestId(),
                 session.getSessionId());
-        initialize();
+        //initialize();
     }
 
     //@Override
@@ -95,9 +102,6 @@ public class KubernetesControlSpeechlet implements Speechlet {
             throws SpeechletException {
         log.info("onIntent requestId={}, sessionId={}", request.getRequestId(),
                 session.getSessionId());
-
-        //probably remove this, but session doesn't seem to close when testing
-				initialize();
 
         Intent intent = request.getIntent();
         String intentName = (intent != null) ? intent.getName() : null;
@@ -121,6 +125,11 @@ public class KubernetesControlSpeechlet implements Speechlet {
         else {
         	session.setAttribute("provider", "aws");
         }
+        
+        cloudProvider = (cloudProvider != null) ? cloudProvider : "aws";
+        
+        //probably remove this, but session doesn't seem to close when testing
+	    initialize(cloudProvider);
         
         log.info("host = " + host);
 
@@ -496,7 +505,7 @@ Map<String, Object> map = session.getAttributes();
     }
 
 
-    private void initialize() {
+    private void initialize(String cloudProvider) {
     	 try{
 
 					log.info("Entered initialize");
@@ -515,7 +524,8 @@ Map<String, Object> map = session.getAttributes();
 					token_azure = "Bearer " + azuretoken;
 					host_aws = yamlParsers.get("awshost").toString();
 					host_azure = yamlParsers.get("azurehost").toString();
-
+					ClientConfig config = new DefaultClientConfig();
+					
 					client.addFilter(new HTTPBasicAuthFilter(user, password));
 
 					/*TrustManager[]*/ trustAllCerts = new TrustManager[] {
@@ -539,6 +549,8 @@ Map<String, Object> map = session.getAttributes();
 						 return true;
 					 }
 					};
+					
+					config.getProperties().put(HTTPSProperties.PROPERTY_HTTPS_PROPERTIES, new HTTPSProperties(allHostsValid, ProviderSslContextFactory.getSslContext(cloudProvider, null).getSslContext()));
          }
          catch(Exception ex) {
          	log.error("Failure getting creds! " + ex.getMessage());
