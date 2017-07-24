@@ -1,11 +1,11 @@
 package voiceops.kubernetescontrol.auth;
 
-public class ProviderSslContextFactory
+public class ProviderClientFactory
 {
-  public static ProviderSslContext getSslContext(String criteria, String region)
+  public static ProviderClient getClient(String criteria, String region)
   {
     if ( criteria.equals("aws") )
-      return new awsSslContext();
+      return new AwsClient();
     else if ( criteria.equals("azure") )
       return null;
 

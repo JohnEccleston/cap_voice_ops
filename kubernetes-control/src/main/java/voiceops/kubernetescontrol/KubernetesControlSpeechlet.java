@@ -32,8 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 
-import voiceops.kubernetescontrol.auth.ProviderSslContext;
-import voiceops.kubernetescontrol.auth.ProviderSslContextFactory;
+import voiceops.kubernetescontrol.auth.ProviderClientFactory;
 import voiceops.kubernetescontrol.model.*;
 import voiceops.kubernetescontrol.process.deployment.DeploymentProcess;
 import voiceops.kubernetescontrol.process.routing.RoutingProcess;
@@ -550,8 +549,10 @@ Map<String, Object> map = session.getAttributes();
 					 }
 					};
 					
-					config.getProperties().put(HTTPSProperties.PROPERTY_HTTPS_PROPERTIES, new HTTPSProperties(allHostsValid, ProviderSslContextFactory.getSslContext(cloudProvider, null).getSslContext()));
-					client = Client.create(config);
+					client = ProviderClientFactory.getClient(cloudProvider, null).getClient();
+					
+//					config.getProperties().put(HTTPSProperties.PROPERTY_HTTPS_PROPERTIES, new HTTPSProperties(allHostsValid, ProviderSslContextFactory.getSslContext(cloudProvider, null).getSslContext()));
+//					client = Client.create(config);
          }
          catch(Exception ex) {
          	log.error("Failure getting creds! " + ex.getMessage());
