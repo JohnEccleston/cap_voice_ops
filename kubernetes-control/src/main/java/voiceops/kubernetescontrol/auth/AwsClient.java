@@ -104,7 +104,7 @@ public class AwsClient implements ProviderClient {
 			client = Client.create(config);
 		}
 		catch(Exception ex) {
-			log.error("Failed to get Jerssy client for aws kubernetes call");
+			log.error("Failed to get Jersey client for aws kubernetes call");
 		}
 		return client;
 	}
