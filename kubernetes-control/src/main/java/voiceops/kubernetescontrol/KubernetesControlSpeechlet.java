@@ -26,7 +26,6 @@ import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.config.ClientConfig;
 import com.sun.jersey.api.client.config.DefaultClientConfig;
 import com.sun.jersey.api.client.filter.HTTPBasicAuthFilter;
-import com.sun.jersey.client.urlconnection.HTTPSProperties;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -523,7 +522,6 @@ Map<String, Object> map = session.getAttributes();
 					token_azure = "Bearer " + azuretoken;
 					host_aws = yamlParsers.get("awshost").toString();
 					host_azure = yamlParsers.get("azurehost").toString();
-					ClientConfig config = new DefaultClientConfig();
 					
 					client.addFilter(new HTTPBasicAuthFilter(user, password));
 
