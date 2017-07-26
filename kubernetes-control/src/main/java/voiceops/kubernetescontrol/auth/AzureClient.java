@@ -23,50 +23,16 @@ import com.sun.jersey.api.client.config.ClientConfig;
 import com.sun.jersey.api.client.config.DefaultClientConfig;
 import com.sun.jersey.client.urlconnection.HTTPSProperties;
 
-public class AwsClient implements ProviderClient {
+public class AzureClient implements ProviderClient {
 	
-	private static final Logger log = LoggerFactory.getLogger(AwsClient.class);
 	private Regions region = Regions.EU_WEST_1 ;
-	private String bucketName = "k8sdemo-store";
-	private String bucketkey = "k8sdemo.capademy.com/pki/issued/ca/6434398114042835278235624689.crt";
-
-	//@Override
-	public SSLContext getSslContext() {	
-		SSLContext sslContext = null;
-		try {
-				AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
-						 	    			.withRegion(this.region)
-						     			.build();
-		    	S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "k8sdemo.capademy.com/pki/issued/ca/6434398114042835278235624689.crt"));
-		    	
-		    	InputStream stream = object.getObjectContent();
-		    	
-		    	CertificateFactory cf = CertificateFactory.getInstance("X.509");
-		    	//maybe other import
-		    	X509Certificate caCert = (X509Certificate)cf.generateCertificate(stream);
-		
-		    	TrustManagerFactory tmf = TrustManagerFactory
-		    	    .getInstance(TrustManagerFactory.getDefaultAlgorithm());
-		    	KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
-		    	ks.load(null); // You don't need the KeyStore instance to come from a file.
-		    	ks.setCertificateEntry("caCert", caCert);
-		
-		    	tmf.init(ks);
-		
-		    	sslContext = SSLContext.getInstance("TLS");
-		    	sslContext.init(null, tmf.getTrustManagers(), null);
-		    }
-			catch(Exception ex) {
-				log.error("Failed to get SSLContext for aws kubernetes call");
-			
-			}
-		return sslContext;
-	}
 	
+	private static final Logger log = LoggerFactory.getLogger(AzureClient.class);
+
 	public void setRegion(Regions region) {
 		this.region = region;
 	}
-
+	
 	@Override
 	public Client getClient() {
 		Client client = null;
@@ -75,7 +41,7 @@ public class AwsClient implements ProviderClient {
 			AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
  	    			.withRegion(this.region)
      			.build();
-			S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "k8sdemo.capademy.com/pki/issued/ca/6434398114042835278235624689.crt"));
+			S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "k8sdemo.capademy.com/pki/issued/ca/azure-ca.cert"));
 			
 			InputStream stream = object.getObjectContent();
 			
@@ -110,4 +76,5 @@ public class AwsClient implements ProviderClient {
 		}
 		return client;
 	}
+
 }
