@@ -41,7 +41,7 @@ public class AzureClient implements ProviderClient {
 			AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
  	    			.withRegion(this.region)
      			.build();
-			S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "k8sdemo.capademy.com/pki/issued/ca/azure-ca.cert"));
+			S3Object object = s3Client.getObject(new GetObjectRequest("k8sdemo-store", "access/azure-apiserver.cert"));
 			
 			InputStream stream = object.getObjectContent();
 			
@@ -73,6 +73,7 @@ public class AzureClient implements ProviderClient {
 		}
 		catch(Exception ex) {
 			log.error("Failed to get Jersey client for aws kubernetes call");
+			ex.printStackTrace();
 		}
 		return client;
 	}

@@ -516,12 +516,12 @@ Map<String, Object> map = session.getAttributes();
 					HashMap<Object, Object> yamlParsers = (HashMap<Object, Object>) yaml.load(object.getObjectContent());
 					final String user = yamlParsers.get("awsuser").toString();
 					final String password = yamlParsers.get("awspassword").toString();
-					final String azuretoken = yamlParsers.get("azuretoken").toString();
+					final String azuretoken = yamlParsers.get("azurehosttoken").toString();
 					token_azure = "Bearer " + azuretoken;
 					host_aws = yamlParsers.get("awshost").toString();
-					host_azure = yamlParsers.get("azurehost").toString();
+					host_azure = yamlParsers.get("azurehostname").toString();
 					
-					client.addFilter(new HTTPBasicAuthFilter(user, password));
+					//client.addFilter(new HTTPBasicAuthFilter(user, password));
 
 					/*TrustManager[]*/ trustAllCerts = new TrustManager[] {
 							new X509TrustManager() {
@@ -546,6 +546,7 @@ Map<String, Object> map = session.getAttributes();
 					};
 					
 					client = ProviderClientFactory.getClient(cloudProvider, null).getClient();
+					client.addFilter(new HTTPBasicAuthFilter(user, password));
 					
 //					config.getProperties().put(HTTPSProperties.PROPERTY_HTTPS_PROPERTIES, new HTTPSProperties(allHostsValid, ProviderSslContextFactory.getSslContext(cloudProvider, null).getSslContext()));
 //					client = Client.create(config);

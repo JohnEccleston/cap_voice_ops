@@ -7,7 +7,7 @@ public class ProviderClientFactory
     if ( criteria.equals("aws") )
       return new AwsClient();
     else if ( criteria.equals("azure") )
-      return null;
+      return new AzureClient();
 
     return null;
   }

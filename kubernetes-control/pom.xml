@@ -4,6 +4,7 @@
   <groupId>voice-ops</groupId>
   <artifactId>kubernetes-control</artifactId>
   <packaging>war</packaging>
+  <!--  <packaging>jar</packaging> -->
   <version>0.0.1-SNAPSHOT</version>
   <name>kubernetes-control Maven Webapp</name>
   <url>http://maven.apache.org</url>
@@ -198,6 +199,23 @@
             </systemProperties>
           </configuration>
         </plugin>
+        
+        <plugin>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <descriptorRefs>
+            <descriptorRef>jar-with-dependencies</descriptorRef>
+          </descriptorRefs>
+        </configuration>
+      </plugin>
       </plugins>
     </pluginManagement>
   </build>
